@@ -1,3 +1,4 @@
+import React, { useRef, useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -5,76 +6,102 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  ActivityIndicator,
 } from "react-native";
-import React, { useState } from "react";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
 
 const OtpScreen = () => {
-  const [otp, setOtp] = useState("");
   const router = useRouter();
+  const [otp, setOtp] = useState(["", "", "", "", "", ""]);
+  const [loading, setLoading] = useState(false);
+  const inputs = useRef([]);
+
+  const handleChange = (text, index) => {
+    if (/^\d$/.test(text)) {
+      const newOtp = [...otp];
+      newOtp[index] = text;
+      setOtp(newOtp);
+      if (index < 5) inputs.current[index + 1]?.focus();
+    } else if (text === "") {
+      const newOtp = [...otp];
+      newOtp[index] = "";
+      setOtp(newOtp);
+    }
+  };
+
+  const handleSubmitOtp = () => {
+    const isComplete = otp.every((digit) => digit !== "");
+    if (!isComplete) {
+      Alert.alert("Incomplete OTP", "Please enter a valid OTP.");
+      return;
+    }
+
+    setLoading(true);
+    setTimeout(() => {
+      setLoading(false);
+      router.push("../screens/UserName");
+    }, 1500);
+  };
+
+  useEffect(() => {
+    const isComplete = otp.every((digit) => digit !== "");
+    if (isComplete) {
+      handleSubmitOtp();
+    }
+  }, [otp]);
 
   return (
-    <LinearGradient
-      colors={["#e0f2fe", "#fefce8", "#ffffff"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      className="flex-1"
-    >
-      <SafeAreaView className="flex-1 px-6 pt-16">
-        <View className="space-y-4 mb-10">
-          <Text className="text-center text-4xl font-extrabold text-indigo-700 drop-shadow-xl tracking-wide">
-            🔐 Verify OTP
-          </Text>
-          <Text className="text-center text-base text-gray-700">
-            Enter the 6-digit code sent to your mobile.
-          </Text>
-        </View>
+    <SafeAreaView className="flex-1 bg-[#e0f2fe] px-6 pt-16">
+      <View className="space-y-4 mb-10">
+        <Text className="text-center text-4xl font-extrabold text-indigo-700 tracking-wide">
+          🔐 Verify OTP
+        </Text>
+        <Text className="text-center text-base text-gray-700">
+          Enter the 6-digit code sent to your mobile.
+        </Text>
+      </View>
 
-        <View className="bg-white/90 rounded-2xl px-5 py-4 shadow-md border border-gray-100 mb-10 backdrop-blur-md">
-          <Text className="text-xs text-gray-500 mb-1">OTP Code</Text>
+      <View className="flex-row justify-between mb-8 px-2">
+        {otp.map((digit, index) => (
           <TextInput
-            placeholder="------"
-            keyboardType="numeric"
-            maxLength={6}
-            value={otp}
-            onChangeText={setOtp}
-            className="text-2xl tracking-widest text-center text-gray-900 font-bold"
-            placeholderTextColor="#bbb"
+            key={index}
+            ref={(ref) => (inputs.current[index] = ref)}
+            keyboardType="number-pad"
+            maxLength={1}
+            value={digit}
+            onChangeText={(text) => handleChange(text, index)}
+            className="w-12 h-14 text-center text-lg font-bold bg-white border border-gray-300 rounded-xl shadow-sm text-gray-800"
           />
-        </View>
+        ))}
+      </View>
 
-        <TouchableOpacity activeOpacity={0.8} className="mb-6">
-          <Text className="text-center text-sm text-blue-600 font-semibold underline">
-            Didn't receive the code? Resend
+      <TouchableOpacity
+        activeOpacity={0.8}
+        className="mb-6"
+        onPress={() => Alert.alert("OTP Sent Again!")}
+      >
+        <Text className="text-center text-sm text-blue-600 font-semibold underline">
+          Didn't receive the code? Resend
+        </Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={handleSubmitOtp}
+        disabled={loading}
+        activeOpacity={0.9}
+        className={`py-4 rounded-full ${
+          loading ? "bg-gray-400" : "bg-indigo-600"
+        } shadow-md`}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text className="text-center text-white font-semibold text-lg">
+            Verify & Continue
           </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          activeOpacity={0.9}
-          className="rounded-2xl shadow-xl disabled:opacity-50"
-          disabled={otp.length < 6}
-          onPress={() => {
-            {
-              otp.length === 6
-                ? router.push("../screens/BottomNavigation/TabHomeScreen")
-                : Alert.alert("Invalid Otp");
-            }
-          }}
-        >
-          <LinearGradient
-            colors={["#6366f1", "#3b82f6"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            className="py-4 rounded-2xl"
-          >
-            <Text className="text-center text-white font-bold text-lg tracking-wide">
-              Verify & Continue
-            </Text>
-          </LinearGradient>
-        </TouchableOpacity>
-      </SafeAreaView>
-    </LinearGradient>
+        )}
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 };
 

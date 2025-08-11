@@ -1,16 +1,17 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   View,
   Text,
   TextInput,
   ScrollView,
   TouchableOpacity,
+  Image,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather } from "@expo/vector-icons";
 import { FontAwesome5 } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
 import { useRouter } from "expo-router";
+import logoImg from "../../assets/images/Chat-Logo.png";
 
 const chatList = [
   {
@@ -49,98 +50,98 @@ const chatList = [
     text: "Meeting rescheduled.",
     time: "Yesterday",
   },
+  {
+    id: 7,
+    name: "Aman Verma",
+    text: "I am good, what about you?",
+    time: "10:00 AM",
+  },
+  {
+    id: 8,
+    name: "John Doe",
+    text: "Let's connect later today.",
+    time: "9:45 AM",
+  },
+  {
+    id: 9,
+    name: "Priya Sharma",
+    text: "Meeting rescheduled.",
+    time: "Yesterday",
+  },
 ];
 
 const Chats = () => {
   const router = useRouter();
+  const [search, setSearch] = useState("");
+
+  const filteredChats = chatList.filter(
+    (chat) =>
+      chat.name.toLowerCase().includes(search.toLowerCase()) ||
+      chat.text.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
-    <LinearGradient
-      colors={["#e0f2fe", "#f8fafc"]}
-      start={{ x: 0, y: 0 }}
-      end={{ x: 1, y: 1 }}
-      className="flex-1"
-    >
-      <SafeAreaView className="flex-1 relative">
-        <LinearGradient
-          colors={["#4f46e5", "#6366f1", "#818cf8"]}
-          className="px-6 py-6 rounded-b-3xl shadow-lg"
-        >
-          <Text className="text-4xl font-extrabold text-white tracking-wide drop-shadow-lg">
-            💬 TI-Connect
-          </Text>
-        </LinearGradient>
+    <SafeAreaView className="flex-1 bg-[#f1f5f9]">
+      <View className="px-5 pt-6 pb-3 bg-indigo-600 rounded-b-3xl">
+        <Text className="text-4xl font-extrabold text-white text-center tracking-wide mb-3">
+          {/* 💬 TI-Connect */}
+          <Image
+            source={logoImg}
+            style={{
+              width: 200,
+              height: 46,
 
-        <ScrollView
-          className="px-5 pt-6"
-          contentContainerStyle={{ paddingBottom: 120 }}
-        >
-          <View className="flex-row items-center bg-white/80 border border-gray-200 rounded-full px-5 py-3 shadow-md mb-6 backdrop-blur-sm">
-            <Feather name="search" size={20} color="#555" />
-            <TextInput
-              placeholder="Search chats..."
-              className="ml-3 flex-1 text-base text-gray-800"
-              placeholderTextColor="#999"
-            />
-          </View>
+              // borderRadius: 9999,
+              // borderWidth: 1,
+              // borderColor: "#ccc",
+            }}
+          />
+        </Text>
 
-          <View className="flex-row justify-between mb-6">
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
-              <TouchableOpacity
-                onPress={() => "./Chats"}
-                activeOpacity={0.9}
-                className="py-2 rounded-full"
-              >
-                <Text className="text-center text-white font-semibold">
-                  All
-                </Text>
-              </TouchableOpacity>
-            </LinearGradient>
+        <View className="flex-row items-center  bg-white rounded-full px-5 py-0 shadow-sm">
+          <Feather name="search" size={20} color="#555" />
+          <TextInput
+            placeholder="Search chats..."
+            className="ml-3 flex-1 text-base text-gray-800"
+            placeholderTextColor="#999"
+            value={search}
+            onChangeText={setSearch}
+          />
+        </View>
+      </View>
 
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
-              <TouchableOpacity
-                onPress={() => router.push("/screens/pages/UnRead")}
-                activeOpacity={0.9}
-                className="py-2 rounded-full"
-              >
-                <Text className="text-center text-white font-semibold">
-                  Unread
-                </Text>
-              </TouchableOpacity>
-            </LinearGradient>
+      <View className="flex-row justify-between mx-4 mt-5 mb-4">
+        {[
+          { title: "All", path: "./Chats" },
+          { title: "Unread", path: "/screens/pages/UnRead" },
+          { title: "Groups", path: "/screens/pages/Groups" },
+        ].map((item, index) => (
+          <TouchableOpacity
+            key={index}
+            onPress={() => router.push(item.path)}
+            className="flex-1 mx-1 bg-indigo-500 py-2 rounded-full"
+            activeOpacity={0.9}
+          >
+            <Text className="text-center text-white font-semibold">
+              {item.title}
+            </Text>
+          </TouchableOpacity>
+        ))}
+      </View>
 
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
-              <TouchableOpacity
-                onPress={() => router.push("/screens/pages/Groups")}
-                activeOpacity={0.9}
-                className="py-2 rounded-full"
-              >
-                <Text className="text-center text-white font-semibold">
-                  Groups
-                </Text>
-              </TouchableOpacity>
-            </LinearGradient>
-          </View>
-
-          {chatList.map((chat) => (
+      <ScrollView
+        className="px-4"
+        contentContainerStyle={{ paddingBottom: 120 }}
+      >
+        <View className="space-y-4">
+          {filteredChats.map((chat) => (
             <TouchableOpacity
-              onPress={() => {
-                router.push("/screens/Message");
-              }}
+              onPress={() => router.push("/screens/Message")}
               key={chat.id}
               activeOpacity={0.9}
-              className="flex-row justify-between items-center bg-white px-4 py-4 mb-4 rounded-2xl shadow-lg border border-gray-100"
+              className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
             >
-              <View className="flex-row items-center gap-4">
+              <View className="flex-row items-center gap-2 space-x-4">
                 <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
                 <View>
                   <Text className="text-lg font-semibold text-gray-800">
@@ -152,17 +153,16 @@ const Chats = () => {
               <Text className="text-xs text-gray-400">{chat.time}</Text>
             </TouchableOpacity>
           ))}
-        </ScrollView>
-        <View className="absolute bottom-40 right-5">
-          <FontAwesome5
-            onPress={() => router.push("/screens/pages/AddContact")}
-            name="plus-square"
-            size={44}
-            color="#6366f1"
-          />
         </View>
-      </SafeAreaView>
-    </LinearGradient>
+      </ScrollView>
+
+      <TouchableOpacity
+        onPress={() => router.push("/screens/pages/AddContact")}
+        className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+      >
+        <FontAwesome5 name="plus" size={26} color="#fff" />
+      </TouchableOpacity>
+    </SafeAreaView>
   );
 };
 
