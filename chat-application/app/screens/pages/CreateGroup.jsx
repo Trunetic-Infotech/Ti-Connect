@@ -1,3 +1,4 @@
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -6,7 +7,6 @@ import {
   TouchableOpacity,
   Alert,
 } from "react-native";
-import React, { useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
@@ -44,12 +44,17 @@ const CreateGroup = () => {
       return;
     }
     if (selectedUsers.length === 0) {
-      Alert.alert("Select At Least One Number");
+      Alert.alert("Select At Least One Member");
       return;
     }
-    Alert.alert("Group Created", `Group :${groupName}`, [
-      { text: "OK", onPress: () => router.back() },
-    ]);
+
+    router.push({
+      pathname: "/screens/pages/GroupProfile",
+      params: {
+        newMembers: JSON.stringify(selectedUsers),
+        groupName,
+      },
+    });
   };
 
   return (
@@ -65,7 +70,7 @@ const CreateGroup = () => {
         <TextInput
           value={groupName}
           onChangeText={setGroupName}
-          placeholder="Enter Your Name"
+          placeholder="Enter Group Name"
           className="bg-gray-100 px-4 py-3 rounded-xl text-base text-gray-800"
           placeholderTextColor="#999"
         />
@@ -84,6 +89,7 @@ const CreateGroup = () => {
           />
         </View>
       </View>
+
       <FlatList
         data={filteredContact}
         keyExtractor={(item) => item.id}
@@ -112,6 +118,7 @@ const CreateGroup = () => {
           </Text>
         }
       />
+
       <TouchableOpacity
         onPress={handleCreateGroup}
         activeOpacity={0.9}
@@ -122,7 +129,7 @@ const CreateGroup = () => {
           className="py-4 rounded-2xl"
         >
           <Text className="text-center text-white font-bold text-lg">
-            Create Group
+            Add Selected Members
           </Text>
         </LinearGradient>
       </TouchableOpacity>
