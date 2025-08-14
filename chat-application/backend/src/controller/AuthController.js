@@ -160,22 +160,24 @@ await users.execute(
 export const otpVerify = async (req, res) => {
   try {
     const { phone_number, otp_store } = req.params;
+    console.log("OTP Verification:", { phone_number, otp_store });
 
     if (!phone_number || !otp_store)
       return res.status(400).json({ error: "phone number & OTP required" });
 
     // Fetch OTP from DB
     const [rows] = await users.execute(
-      "SELECT * FROM users WHERE phone_number = ? AND otp_store = ? ORDER BY id DESC LIMIT 1",
+      "SELECT * FROM users WHERE phone_number = ? AND otp_store = ? ",
       [phone_number, otp_store]
     );
+   console.log("OTP Verification Result:", rows[0]);
 
     if (!rows.length)
       return res.status(400).json({ error: "Phone number not found" });
 
     if (String(rows[0].otp_store) !== String(otp_store))
       return res.status(400).json({ error: "Invalid OTP" });
-
+   
     if (new Date(rows[0].expires_at) < new Date())
       return res.status(400).json({ error: "OTP expired" });
 
@@ -194,7 +196,7 @@ export const otpVerify = async (req, res) => {
     }
 
     // Generate token for user
-    const token = jwt.sign({ phone_number, status: "Online" }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ phone_number, status: "Online", id: rows[0].id }, process.env.JWT_SECRET, {
       expiresIn: "1d"
     });
 
@@ -205,39 +207,53 @@ export const otpVerify = async (req, res) => {
     });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: "Verification failed" });
+    console.error(err.message);
+    res.status(500).json({ error: "Verification failed" , err});
   }
 };
 
 
-export const setName = async (req,res) =>{
+export const setNameController = async (req, res) => {
   try {
+    const user = req.user;
     const { username } = req.body;
-    const phone_number = req.user.phone_number;
+    const  id  = user.id; // ✅ properly destructure
 
     if (!username) {
       return res.status(400).json({ error: "Name is required" });
     }
 
-    await users.execute(
-      "UPDATE users SET username = ? WHERE phone_number = ?",
-      [username, phone_number]
+    const [result] = await users.execute(
+      "UPDATE users SET username = ? WHERE id = ?",
+      [username, id]
     );
 
-    res.json({ success: true, message: "Name added successfully" });
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.json({ success: true, message: "Name updated successfully" });
   } catch (error) {
     console.error("Error updating name:", error);
     res.status(500).json({ error: "Internal server error" });
   }
-}
+};
 
 
-export const uploadImage = async (req, res) => {
+export const uploadImageController = async (req, res) => {
   try {
-    const file = req.file;
+    const user = req.user;
+    const  id  = user.id;
+   console.log("User ",user);
+    console.log("User Id",id);
 
-    if(!file){
+
+    if (!id) {
+      return res.status(400).json({ error: "id is required" });
+    }
+
+    const file = req.file;
+    if (!file) {
       return res.status(400).json({ error: "No file uploaded" });
     }
 
@@ -247,19 +263,23 @@ export const uploadImage = async (req, res) => {
       public_id: file.filename,
     });
 
-    // Save image URL to user profile in DB
+    // Save image URL to DB
     await users.execute(
-      "UPDATE users SET profile_picture = ? WHERE phone_number = ?",
-      [result.secure_url, req.user.phone_number]
+      "UPDATE users SET profile_picture = ? WHERE id = ?",
+      [result.secure_url, id]
     );
 
-    res.json({ success: true, message: "Image uploaded successfully", data: { url: result.secure_url } });
+    res.json({
+      success: true,
+      message: "Image uploaded successfully",
+      data: { url: result.secure_url },
+    });
   } catch (error) {
-    console.log("Error uploading image:", error);
+    console.error("Error uploading image:", error);
     res.status(500).json({ error: "Failed to upload image" });
-    
   }
-}
+};
+
 
 
 export const getUserProfile = async (req, res) => {
