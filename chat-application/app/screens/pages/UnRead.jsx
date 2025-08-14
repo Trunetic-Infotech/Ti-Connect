@@ -7,9 +7,9 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Feather } from "@expo/vector-icons";
-import { FontAwesome5 } from "@expo/vector-icons";
+import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
+import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 
 const chatList = [
@@ -18,18 +18,19 @@ const chatList = [
     name: "Aman Verma",
     text: "I am good, what about you?",
     time: "10:00 AM",
-    unRead: "1",
+    unRead: 1,
   },
   {
     id: 2,
     name: "John Doe",
     text: "Let's connect later today.",
     time: "9:45 AM",
-    unRead: "4",
+    unRead: 4,
   },
 ];
 
 const UnRead = () => {
+  const navigation = useNavigation();
   const router = useRouter();
 
   return (
@@ -63,58 +64,28 @@ const UnRead = () => {
           </View>
 
           <View className="flex-row justify-between mb-6">
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
+            {[
+              { title: "All", screen: "Chats" },
+              { title: "Unread", screen: "UnRead" },
+              { title: "Groups", screen: "Groups" },
+            ].map((item, index) => (
               <TouchableOpacity
-                onPress={() => router.push("/screens/Chats")}
+                key={index}
+                onPress={() => navigation.navigate(item.screen)}
+                className="flex-1 mx-1 bg-indigo-500 py-2 rounded-full"
                 activeOpacity={0.9}
-                className="py-2 rounded-full"
               >
                 <Text className="text-center text-white font-semibold">
-                  All
+                  {item.title}
                 </Text>
               </TouchableOpacity>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
-              <TouchableOpacity
-                onPress={() => router.push("/screens/pages/UnRead")}
-                activeOpacity={0.9}
-                className="py-2 rounded-full"
-              >
-                <Text className="text-center text-white font-semibold">
-                  Unread
-                </Text>
-              </TouchableOpacity>
-            </LinearGradient>
-
-            <LinearGradient
-              colors={["#6366f1", "#60a5fa"]}
-              className="flex-1 mx-1 rounded-full"
-            >
-              <TouchableOpacity
-                onPress={() => router.push("/screens/pages/Groups")}
-                activeOpacity={0.9}
-                className="py-2 rounded-full"
-              >
-                <Text className="text-center text-white font-semibold">
-                  Groups
-                </Text>
-              </TouchableOpacity>
-            </LinearGradient>
+            ))}
           </View>
 
           {chatList.map((chat) => (
             <TouchableOpacity
-              onPress={() => {
-                router.push("/screens/Message");
-              }}
               key={chat.id}
+              onPress={() => router.push("/screens/Message")}
               activeOpacity={0.9}
               className="flex-row justify-between items-center bg-white px-4 py-4 mb-4 rounded-2xl shadow-lg border border-gray-100"
             >
@@ -127,11 +98,13 @@ const UnRead = () => {
                   <Text className="text-sm text-gray-500">{chat.text}</Text>
                 </View>
               </View>
-              <View>
+              <View className="items-center">
                 <Text className="text-xs text-gray-400">{chat.time}</Text>
-                <Text className="text-xs text-blue-900 text-center px-[5px] py-[5px] rounded-full bg-blue-100">
-                  {chat.unRead}
-                </Text>
+                {chat.unRead > 0 && (
+                  <Text className="text-xs text-blue-900 text-center px-2 py-1 rounded-full bg-blue-100 mt-1">
+                    {chat.unRead}
+                  </Text>
+                )}
               </View>
             </TouchableOpacity>
           ))}

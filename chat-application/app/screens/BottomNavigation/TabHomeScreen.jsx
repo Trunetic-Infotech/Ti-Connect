@@ -1,9 +1,7 @@
 import React from "react";
-import { View, TouchableOpacity, StyleSheet, Platform } from "react-native";
+import { View, TouchableOpacity, StyleSheet } from "react-native";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { FontAwesome5 } from "@expo/vector-icons";
-import Chats from "../Chats";
-import Groups from "../pages/Groups";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -12,15 +10,21 @@ import Animated, {
   withSpring,
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient";
+
+// Screens
+import Chats from "../Chats";
+import UnRead from "../pages/UnRead";
+import Groups from "../pages/Groups";
 import CallList from "../pages/CallList";
 import Setting from "../pages/Setting";
 
 const Tab = createBottomTabNavigator();
 
-const iconNames = ["comment-dots", "users", "phone-alt", "cog"];
+// Icons for each tab in order
+const iconNames = ["comment-dots", "bell", "users", "phone-alt", "cog"];
 
-const CustomTabBar = ({ state, descriptors, navigation }) => {
-  const animations = state.routes.map((_, index) => ({
+const CustomTabBar = ({ state, navigation }) => {
+  const animations = state.routes.map(() => ({
     translateY: useSharedValue(0),
     scale: useSharedValue(1),
   }));
@@ -32,9 +36,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
         const { translateY, scale } = animations[index];
 
         const onPress = () => {
-          if (!isFocused) {
-            navigation.navigate(route.name);
-          }
+          if (!isFocused) navigation.navigate(route.name);
         };
 
         if (isFocused) {
@@ -54,7 +56,7 @@ const CustomTabBar = ({ state, descriptors, navigation }) => {
 
         return (
           <TouchableOpacity
-            key={index}
+            key={route.name}
             onPress={onPress}
             style={styles.tabItem}
             activeOpacity={0.8}
@@ -90,6 +92,7 @@ const TabHomeScreen = () => {
       tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tab.Screen name="Chats" component={Chats} />
+      <Tab.Screen name="UnRead" component={UnRead} />
       <Tab.Screen name="Groups" component={Groups} />
       <Tab.Screen name="Calls" component={CallList} />
       <Tab.Screen name="Settings" component={Setting} />

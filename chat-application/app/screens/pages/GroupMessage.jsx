@@ -8,16 +8,22 @@ import {
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  TouchableOpacity,
   Animated,
+  Alert,
+  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { Ionicons, Entypo } from "@expo/vector-icons";
-import { LinearGradient } from "expo-linear-gradient";
-import { BlurView } from "expo-blur";
 import { useRouter } from "expo-router";
+
 import dp from "../../../assets/images/dp.jpg";
+
+import GroupChatHeader from "../components/GroupChatHeader/GroupChatHeader";
 import SendMessageBar from "../components/SenderMessage/SendMessageBar";
+import BlockedOverlay from "../components/BlockContact/BlockedOverlay";
+import SelectedMessagesActionBar from "../components/SelectedMessagesActionBar/SelectedMessagesActionBar";
+import MessagesList from "../components/MessagesList/MessagesList";
+
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 const initialMessages = [
   { id: 1, sender: "Aman", text: "Hey team! 👋", avatar: dp },
@@ -37,84 +43,138 @@ const initialMessages = [
 
 const GroupMessage = () => {
   const [messages, setMessages] = useState([]);
-  const router = useRouter();
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [messageText, setMessageText] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [hasLeftGroup, setHasLeftGroup] = useState(false);
+  const [wallpaperUri, setWallpaperUri] = useState(null);
 
+  const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
-
-  const animateMessage = () => {
-    fadeAnim.setValue(0);
-    Animated.timing(fadeAnim, {
-      toValue: 1,
-      duration: 300,
-      useNativeDriver: true,
-    }).start();
-  };
 
   useEffect(() => {
     setTimeout(() => {
       setMessages(initialMessages);
-      animateMessage();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
     }, 300);
   }, []);
 
-  const renderMessage = ({ item }) => {
-    const isMe = item.sender === "You";
-    return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [
-            {
-              translateY: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20, 0],
-              }),
-            },
-          ],
-        }}
-      >
-        <View
-          className={`max-w-[75%] my-2 ${isMe ? "self-end items-end" : "self-start items-start"}`}
-        >
-          {!isMe && (
-            <View className="flex-row items-center mb-1">
-              <Image
-                source={item.avatar}
-                className="w-[26px] h-[26px] rounded-full mr-1.5"
-              />
-              <Text className="text-gray-500 text-xs font-semibold">
-                {item.sender}
-              </Text>
-            </View>
-          )}
+  useEffect(() => {
+    (async () => {
+      const uri = await AsyncStorage.getItem("chat_wallpaper");
+      setWallpaperUri(uri || null);
+    })();
+  }, []);
 
-          {/* Message bubble */}
-          <View
-            className={`py-2.5 px-3.5 rounded-[18px] shadow-md ${
-              isMe
-                ? "bg-indigo-700 rounded-br-none"
-                : "bg-yellow-400 rounded-bl-none"
-            }`}
-          >
-            <Text
-              className={`text-[15px] leading-5 ${isMe ? "text-white" : "text-gray-800"}`}
-            >
-              {item.text}
-            </Text>
-
-            {/* Time below text */}
-            {item.time && (
-              <Text
-                className={`text-[10px] mt-1 ${isMe ? "text-white/70" : "text-gray-700/70"}`}
-              >
-                {item.time}
-              </Text>
-            )}
-          </View>
-        </View>
-      </Animated.View>
+  const toggleMessageSelection = (id) => {
+    setSelectedMessages((prev) =>
+      prev.includes(id) ? prev.filter((msgId) => msgId !== id) : [...prev, id]
     );
+  };
+
+  const handleLongPress = (item) => {
+    toggleMessageSelection(item.id);
+  };
+
+  const deleteSelectedMessages = () => {
+    Alert.alert(
+      "Delete Messages",
+      `Are you sure you want to delete ${selectedMessages.length} message(s)?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => {
+            setMessages((prev) =>
+              prev.filter((msg) => !selectedMessages.includes(msg.id))
+            );
+            setSelectedMessages([]);
+            setEditingMessageId(null);
+            setMessageText("");
+          },
+        },
+      ]
+    );
+  };
+
+  const cancelSelection = () => {
+    setSelectedMessages([]);
+    setEditingMessageId(null);
+    setMessageText("");
+  };
+
+  const editSelectedMessage = () => {
+    if (selectedMessages.length === 1) {
+      const msgToEdit = messages.find((msg) => msg.id === selectedMessages[0]);
+      if (msgToEdit) {
+        setEditingMessageId(msgToEdit.id);
+        setMessageText(msgToEdit.text);
+        setSelectedMessages([]);
+      }
+    }
+  };
+
+  const handleSend = (message) => {
+    if (editingMessageId && message.type === "text") {
+      // Editing a text message
+      setMessages((prev) =>
+        prev.map((msg) =>
+          msg.id === editingMessageId ? { ...msg, text: message.text } : msg
+        )
+      );
+      setEditingMessageId(null);
+      setMessageText("");
+    } else {
+      // New message (text or image)
+      const newMsg = {
+        id: Date.now(),
+        sender: "You",
+        avatar: dp,
+        time: new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+        }),
+        ...message, // Spread type, text, uri
+      };
+      setMessages((prev) => [newMsg, ...prev]);
+
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 300,
+        useNativeDriver: true,
+      }).start();
+
+      setTimeout(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }, 100);
+
+      if (message.type === "text") {
+        setMessageText("");
+      }
+    }
+  };
+
+  const clearChat = () => {
+    setMessages([]);
+    setSelectedMessages([]);
+    setEditingMessageId(null);
+  };
+
+  const handleWallpaperChange = async (uri) => {
+    if (uri) {
+      setWallpaperUri(uri);
+      await AsyncStorage.setItem("chat_wallpaper", uri);
+    } else {
+      setWallpaperUri(null);
+      await AsyncStorage.removeItem("chat_wallpaper");
+    }
   };
 
   return (
@@ -125,92 +185,96 @@ const GroupMessage = () => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
-          {/* Header */}
-          <LinearGradient
-            colors={["#4f8ef7", "#2563eb"]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 1 }}
-            style={{
-              borderBottomLeftRadius: 18,
-              borderBottomRightRadius: 18,
-              overflow: "hidden",
-            }}
-          >
-            <BlurView intensity={45} tint="light" className="py-2.5 px-3.5">
-              <View className="flex-row items-center justify-between">
-                <View className="flex-row items-center">
-                  <TouchableOpacity
-                    onPress={() => router.back()}
-                    className="p-2 rounded-full bg-white/15"
-                  >
-                    <Ionicons name="arrow-back" size={22} color="white" />
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    onPress={() => router.push("/screens/pages/GroupProfile")}
-                    activeOpacity={0.8}
-                    className="flex-row items-center ml-2.5"
-                  >
-                    <Image
-                      source={dp}
-                      className="w-9 h-9 rounded-full mr-2 border border-white/25"
-                    />
-                    <View>
-                      <Text className="font-semibold text-base text-white">
-                        Design Team
-                      </Text>
-                      <Text className="text-xs text-white/80">
-                        3 members online
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                </View>
-
-                <TouchableOpacity className="p-2 rounded-full bg-white/15">
-                  <Entypo name="dots-three-vertical" size={20} color="white" />
-                </TouchableOpacity>
-              </View>
-            </BlurView>
-          </LinearGradient>
-
-          {/* Messages */}
-          <View className="flex-1 bg-yellow-100">
-            <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-              <FlatList
-                ref={flatListRef}
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={(item) => item.id.toString()}
-                contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
-                inverted
-                showsVerticalScrollIndicator={false}
-              />
-            </Animated.View>
-          </View>
-
-          {/* Input */}
-          <SendMessageBar
-            onSend={(msg) => {
-              const newMsg = {
-                id: Date.now(),
-                sender: "You",
-                text: msg,
-                avatar: dp,
-                time: new Date().toLocaleTimeString([], {
-                  hour: "2-digit",
-                  minute: "2-digit",
-                }),
-              };
-              setMessages([newMsg, ...messages]);
-              animateMessage();
-              setTimeout(() => {
-                flatListRef.current?.scrollToOffset({
-                  offset: 0,
-                  animated: true,
-                });
-              }, 100);
+          <GroupChatHeader
+            onWallpaperChange={handleWallpaperChange}
+            onBlock={() => setIsBlocked(true)}
+            onClearChat={clearChat}
+            onLeaveGroup={() => {
+              Alert.alert(
+                "Leave Group",
+                "Are you sure you want to leave this group? You won't be able to send or receive messages after leaving.",
+                [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Leave",
+                    style: "destructive",
+                    onPress: () => {
+                      setHasLeftGroup(true);
+                      setSelectedMessages([]);
+                      setEditingMessageId(null);
+                      setMessageText("");
+                    },
+                  },
+                ]
+              );
             }}
           />
+
+          {hasLeftGroup ? (
+            <View className="flex-1 justify-center items-center px-4">
+              <Text className="text-center text-gray-600 text-lg">
+                You have left this group. You cannot send or receive messages.
+              </Text>
+              <TouchableOpacity
+                onPress={() => router.push("/screens/pages/Groups")}
+                className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Back to Groups
+                </Text>
+              </TouchableOpacity>
+            </View>
+          ) : isBlocked ? (
+            <BlockedOverlay
+              onUnblock={() => setIsBlocked(false)}
+              onDelete={() => {
+                Alert.alert(
+                  "Delete Chat",
+                  "Are you sure you want to delete this chat?",
+                  [
+                    { text: "Cancel", style: "cancel" },
+                    {
+                      text: "Delete",
+                      style: "destructive",
+                      onPress: () => {
+                        setMessages([]);
+                        setIsBlocked(false);
+                        router.push("/screens/pages/Groups");
+                      },
+                    },
+                  ]
+                );
+              }}
+            />
+          ) : (
+            <>
+              {selectedMessages.length > 0 && (
+                <SelectedMessagesActionBar
+                  selectedCount={selectedMessages.length}
+                  onEdit={editSelectedMessage}
+                  onDelete={deleteSelectedMessages}
+                  onCancel={cancelSelection}
+                />
+              )}
+
+              <MessagesList
+                messages={messages}
+                onLongPress={handleLongPress}
+                selectedMessages={selectedMessages}
+                fadeAnim={fadeAnim}
+                flatListRef={flatListRef}
+                wallpaperUri={wallpaperUri}
+              />
+
+              <SendMessageBar
+                messageText={messageText}
+                setMessageText={setMessageText}
+                editingMessageId={editingMessageId}
+                cancelEditing={cancelSelection}
+                onSend={handleSend}
+              />
+            </>
+          )}
         </SafeAreaView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
