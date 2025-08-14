@@ -12,6 +12,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome5, Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import axios from "axios";
+
 
 const UserName = () => {
   const [image, setImage] = useState(null);
@@ -33,22 +36,86 @@ const UserName = () => {
       quality: 0.6,
     });
 
-    if (!result.canceled) {
+    if (!result.canceled && result.assets?.length > 0) {
       setImage(result.assets[0].uri);
     }
   };
 
-  const handleContinue = () => {
+  const handleContinue = async () => {
     if (!userName.trim()) {
       Alert.alert("Name Required", "Please enter your name.");
       return;
     }
 
-    setLoading(true);
-    setTimeout(() => {
+    try {
+      setLoading(true);
+
+      const token = await SecureStore.getItemAsync("token");
+      const userId = await SecureStore.getItemAsync("userId");
+
+      const response = await axios.patch(
+        `${process.env.API_URL}/api/v1/users/setName/${userId}`,
+        { username: userName },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.status === 200) {
+        Alert.alert("Success", "Name added successfully!");
+        router.push("/screens/BottomNavigation/TabHomeScreen");
+      } else {
+        Alert.alert("Error", "Failed to add name.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to add name.");
+      console.error("Error adding name:", error);
+    } finally {
       setLoading(false);
-      router.push("/screens/BottomNavigation/TabHomeScreen");
-    }, 2000);
+    }
+  };
+
+  const uploadImage = async () => {
+    if (!image) {
+      Alert.alert("No Image", "Please select an image first.");
+      return;
+    }
+
+    try {
+      setLoading(true);
+
+      const token = await SecureStore.getItemAsync("token");
+      const userId = await SecureStore.getItemAsync("userId");
+
+      const formData = new FormData();
+      formData.append("profile_picture", {
+        uri: image,
+        name: "profile_picture.jpg",
+        type: "image/jpeg",
+      });
+
+      const response = await axios.patch(
+        `${process.env.API_URL}/api/v1/profile/upload/${userId}`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
+      );
+
+      if (response.status === 200) {
+        Alert.alert("Success", "Profile picture updated!");
+      } else {
+        Alert.alert("Error", "Failed to update profile picture.");
+      }
+    } catch (error) {
+      Alert.alert("Error", "Failed to add Profile Pic.");
+      console.error("Error adding Profile Pic:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -88,13 +155,28 @@ const UserName = () => {
         onPress={handleContinue}
         disabled={loading}
         activeOpacity={0.9}
-        className="bg-indigo-600 py-4 rounded-full shadow-md"
+        className="bg-indigo-600 py-4 rounded-full shadow-md mb-4"
       >
         {loading ? (
           <ActivityIndicator color="#fff" />
         ) : (
           <Text className="text-center text-white font-bold text-lg tracking-wide">
             Continue
+          </Text>
+        )}
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        onPress={uploadImage}
+        disabled={loading}
+        activeOpacity={0.9}
+        className="bg-green-600 py-4 rounded-full shadow-md"
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <Text className="text-center text-white font-bold text-lg tracking-wide">
+            Upload Profile Picture
           </Text>
         )}
       </TouchableOpacity>

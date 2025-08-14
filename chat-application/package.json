@@ -18,6 +18,8 @@
     "@react-navigation/elements": "^2.3.8",
     "@react-navigation/native": "^7.1.14",
     "@react-navigation/native-stack": "^7.3.21",
+    "@reduxjs/toolkit": "^2.8.2",
+    "axios": "^1.11.0",
     "clsx": "^2.1.1",
     "expo": "53.0.20",
     "expo-av": "~15.1.7",
@@ -36,6 +38,7 @@
     "expo-media-library": "~17.1.7",
     "expo-permissions": "^14.4.0",
     "expo-router": "~5.1.4",
+    "expo-secure-store": "~14.2.3",
     "expo-sharing": "~13.1.5",
     "expo-splash-screen": "~0.30.10",
     "expo-status-bar": "~2.2.3",
@@ -57,7 +60,13 @@
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.20.0",
     "react-native-webrtc": "^124.0.6",
+<<<<<<< HEAD
     "react-native-webview": "13.13.5"
+=======
+    "react-native-webview": "13.13.5",
+    "react-redux": "^9.2.0",
+    "socket.io-client": "^4.8.1"
+>>>>>>> 1f861b6390cf1421a1a79f7de618e7da00d96315
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

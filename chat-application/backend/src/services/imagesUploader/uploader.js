@@ -1,6 +1,6 @@
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../util/CloudinaryImage.js";  // Adjust path if needed
+import cloudinary from "../../utils/images/Cloudinary.js"; 
 
 // Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
@@ -36,4 +36,4 @@ const upload = multer({
 
 export default upload;
 
-// export const uploadSingleImage = upload.single("images",); // 'images' should match your frontend field name
+
