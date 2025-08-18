@@ -2,9 +2,9 @@ import axios from "axios";
 import users from "../config/Database.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../utils/images/Cloudinary.js";
-// function generateOTP() {
-//   return Math.floor(1000 + Math.random() * 9000).toString();
-// }
+import { getReceiverSocketId } from "../utils/socket/socket.js";
+import { io } from "../utils/socket/socket.js";
+
 
 export const otpSend = async (req, res) => {
   try {
@@ -14,12 +14,12 @@ export const otpSend = async (req, res) => {
       return res.status(400).json({ error: "Phone number is required" });
 
     const otp_store = Math.floor(1000 + Math.random() * 9000).toString();
-    const expiresAt = new Date(Date.now() + 5 * 60000); // 5 min expiry
+    const expires_at = new Date(Date.now() + 5 * 60000); // 5 min expiry
 
     // Store OTP in DB
     await users.query(
       "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
-      [phone_number, otp_store, expiresAt]
+      [phone_number, otp_store, expires_at]
     );
  //check user already exists update otp so user can login again
 
@@ -28,33 +28,33 @@ export const otpSend = async (req, res) => {
       [phone_number]
     );
 
-    // if (userRows.length) {
-    //   // User exists -> update OTP so they can log in again
-    //   await users.execute(
-    //     "UPDATE users SET otp_store = ? WHERE phone_number = ?",
-    //     [otp_store, phone_number]
-    //   );
+    if (userRows.length) {
+      // User exists -> update OTP so they can log in again
+      await users.execute(
+        "UPDATE users SET otp_store = ? WHERE phone_number = ?",
+        [otp_store, phone_number]
+      );
 
-    //   // If no OTP row exists (maybe deleted earlier), insert new one
-    //   if (
-    //     (
-    //       await users.execute("SELECT 1 FROM users WHERE phone_number = ?", [
-    //         phone_number,
-    //       ])
-    //     )[0].length === 0
-    //   ) {
-    //     await users.execute(
-    //       "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
-    //       [phone_number, otp_store, expires_at]
-    //     );
-    //   }
-    // } else {
-    //   // New user -> insert into OTP table
-    //   await users.execute(
-    //     "INSERT INTO otp_store (phone_number, otp, expires_at) VALUES (?, ?, ?)",
-    //     [phone_number, otp_store, expires_at]
-    //   );
-    // }
+      // If no OTP row exists (maybe deleted earlier), insert new one
+      if (
+        (
+          await users.execute("SELECT 1 FROM users WHERE phone_number = ?", [
+            phone_number,
+          ])
+        )[0].length === 0
+      ) {
+        await users.execute(
+          "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
+          [phone_number, otp_store, expires_at]
+        );
+      }
+    } else {
+      // New user -> insert into OTP table
+      await users.execute(
+        "INSERT INTO otp_store (phone_number, otp, expires_at) VALUES (?, ?, ?)",
+        [phone_number, otp_store, expires_at]
+      );
+    }
 
 
     // Send SMS via Edumarc API
@@ -74,7 +74,7 @@ export const otpSend = async (req, res) => {
       },
     });
 await users.execute(
-  "UPDATE users SET status = 'Online' WHERE phone_number = ?",
+  "UPDATE users SET status = 'active' WHERE phone_number = ?",
   [phone_number]
 );
     res.json({
@@ -183,20 +183,28 @@ export const otpVerify = async (req, res) => {
 
     // ✅ OTP verified, update DB status to Online
     await users.execute(
-      "UPDATE users SET status = 'Online', last_seen_at = NULL, otp_store = NULL, expires_at = NULL WHERE phone_number = ?",
+      "UPDATE users SET status = 'active', last_seen_at = NULL, otp_store = NULL, expires_at = NULL WHERE phone_number = ?",
       [phone_number]
     );
 
     // Emit Online status instantly via Socket.IO
-    if (global.io) {
-      global.io.emit("status_update", {
+    // if (global.io) {
+    //   global.io.emit("status_update", {
+    //     phone_number,
+    //     status: "Online"
+    //   });
+    // }
+    // Emit Online status instantly
+    const receiverSocketId = getReceiverSocketId(phone_number);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("status_update", {
         phone_number,
-        status: "Online"
+        status: "active"
       });
     }
 
     // Generate token for user
-    const token = jwt.sign({ phone_number, status: "Online", id: rows[0].id }, process.env.JWT_SECRET, {
+    const token = jwt.sign({ phone_number, status: "active", id: rows[0].id }, process.env.JWT_SECRET, {
       expiresIn: "1d"
     });
 
@@ -282,13 +290,13 @@ export const uploadImageController = async (req, res) => {
 
 
 
-export const getUserProfile = async (req, res) => {
+export const getUserProfileController = async (req, res) => {
   try {
-    const phone_number = req.user.phone_number;
+    const id = req.user.id;
 
     const [rows] = await users.execute(
-      "SELECT phone_number, username, profile_picture FROM users WHERE phone_number = ?",
-      [phone_number]
+      "SELECT * FROM users WHERE id = ?",
+      [id]
     );
 
     if (!rows.length) {

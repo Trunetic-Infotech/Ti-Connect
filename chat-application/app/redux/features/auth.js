@@ -27,11 +27,11 @@ const authSlice = createSlice({
   initialState: {
     user: null,
     isLoggedIn: false,
-    onlineUsers: [], // Array of online user IDs
-    typingStatus: {} // { userId: true/false }
+    onlineUsers: [], 
+    typingStatus: {} 
   },
   reducers: {
-    login: (state, action) => {
+    setUser: (state, action) => {
       state.user = action.payload;
       state.isLoggedIn = true;
     },
@@ -51,5 +51,5 @@ const authSlice = createSlice({
   },
 });
 
-export const { login, logout, setOnlineUsers, setTyping } = authSlice.actions;
+export const { setUser, logout, setOnlineUsers, setTyping } = authSlice.actions;
 export default authSlice.reducer;

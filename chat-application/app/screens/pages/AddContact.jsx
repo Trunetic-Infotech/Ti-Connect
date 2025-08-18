@@ -1,10 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
   TextInput,
   TouchableOpacity,
   ScrollView,
+  Button,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -15,29 +16,71 @@ import {
   FontAwesome5,
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import * as Contacts from "expo-contacts";
 
 const AddContact = () => {
   const router = useRouter();
   const [showSearch, setShowSearch] = useState(false);
   const [searchText, setSearchText] = useState("");
+  const [contacts, setContacts] = useState([]);
+  const [filteredContacts, setFilteredContacts] = useState([]);
+  const [permissionStatus, setPermissionStatus] = useState(null);
 
-  const contacts = [
-    { number: "+91 647648955", status: "Busy..." },
-    { number: "+91 1234567890", status: "Only urgent call" },
-    { number: "+91 6476485674", status: "Free..." },
-    { number: "+91 1234848955", status: "Busy..." },
-    { number: "+91 647648955", status: "Busy..." },
-    { number: "+91 1234567890", status: "Only urgent call" },
-    { number: "+91 6476485674", status: "Free..." },
-    { number: "+91 1234848955", status: "Busy..." },
-  ];
+  const askPermissionAndLoadContacts = async () => {
+    const { status } = await Contacts.requestPermissionsAsync();
+    setPermissionStatus(status);
 
-  const filteredContacts = contacts.filter((contact) =>
-    contact.number.includes(searchText)
-  );
+    if (status === "granted") {
+      const { data } = await Contacts.getContactsAsync({
+        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+      });
+
+      setContacts(data);
+      setFilteredContacts(data); // initially show all
+    }
+  };
+
+  useEffect(() => {
+    askPermissionAndLoadContacts();
+  }, []);
+
+  // 🔍 Filter contacts by name or number
+  useEffect(() => {
+    if (!searchText.trim()) {
+      setFilteredContacts(contacts);
+    } else {
+      const lower = searchText.toLowerCase();
+      const filtered = contacts.filter(
+        (c) =>
+          c.name?.toLowerCase().includes(lower) ||
+          c.phoneNumbers?.some((p) =>
+            p.number?.toLowerCase().includes(lower)
+          )
+      );
+      setFilteredContacts(filtered);
+    }
+  }, [searchText, contacts]);
+
+  if (permissionStatus === null) {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text>Checking permission...</Text>
+      </View>
+    );
+  }
+
+  if (permissionStatus !== "granted") {
+    return (
+      <View className="flex-1 items-center justify-center">
+        <Text>Permission denied. Please allow contacts access.</Text>
+        <Button title="Try Again" onPress={askPermissionAndLoadContacts} />
+      </View>
+    );
+  }
 
   return (
     <SafeAreaView className="flex-1 bg-white">
+      {/* Header */}
       <LinearGradient
         colors={["#6366f1", "#8b5cf6"]}
         start={{ x: 0, y: 0 }}
@@ -62,18 +105,20 @@ const AddContact = () => {
         </View>
       </LinearGradient>
 
+      {/* 🔍 Search bar */}
       {showSearch && (
         <View className="px-4 mt-3">
           <TextInput
             value={searchText}
             onChangeText={setSearchText}
-            placeholder="Search by number"
+            placeholder="Search by name or number"
             className="bg-gray-100 px-4 py-2 rounded-xl text-gray-800"
             placeholderTextColor="#9ca3af"
           />
         </View>
       )}
 
+      {/* Contact List */}
       <ScrollView className="mt-4 px-4">
         <TouchableOpacity className="flex-row items-center space-x-4 bg-indigo-50 py-3 px-4 rounded-xl mb-3 gap-2">
           <View className="p-3 bg-indigo-200 rounded-full">
@@ -109,10 +154,12 @@ const AddContact = () => {
                 </View>
                 <View>
                   <Text className="text-base font-medium text-gray-800">
-                    {contact.number}
+                    {contact.name || "No Name"}
                   </Text>
                   <Text className="text-sm text-gray-500">
-                    {contact.status}
+                    {contact.phoneNumbers
+                      ? contact.phoneNumbers[0]?.number
+                      : "No Number"}
                   </Text>
                 </View>
               </View>

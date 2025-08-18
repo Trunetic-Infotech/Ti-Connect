@@ -5,41 +5,20 @@ import { io } from "socket.io-client";
 import { useEffect } from "react";
 import { Provider } from 'react-redux';
 import { store } from './redux/store/store';
+import { initSocket } from './redux/features/socketService';
 
-const socket = io("http://localhost:5000");
 
 export default function RootLayout() {
-
-//   useEffect(() => {
-//   socket.on("connection", () => {
-//     console.log("Connected to server");
-//   });
-
-
-//   socket.on("user_online", (data) => {
-//     console.log("User online:", data);
-//   });
-
-
-//   socket.on("user_typing", (data) => {
-//     console.log("User typing:", data);
-//   });
-
-//   socket.on("disconnect", () => {
-//     console.log("Disconnected from server");
-//   });
-
-//   return () => {
-//     socket.off("connect");
-//     socket.off("disconnect");
-//   };
-// }, []);
-  
+  useEffect(() => {
+    const socket = initSocket("chat", "http://localhost:5000");
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
 return (
 
     <Provider store={store}>
-      
     <SafeAreaProvider>
       <Stack screenOptions={{ headerShown: false }} />;
     </SafeAreaProvider>
