@@ -148,6 +148,7 @@ const AddContact = () => {
               <View
                 key={index}
                 className="flex-row items-center space-x-4 bg-gray-50 p-3 rounded-xl mb-2 shadow-sm gap-2"
+                 onPress={() => router.push("../Message")} 
               >
                 <View className="p-2 bg-indigo-100 rounded-full">
                   <FontAwesome5 name="user-circle" size={28} color="#4f46e5" />
