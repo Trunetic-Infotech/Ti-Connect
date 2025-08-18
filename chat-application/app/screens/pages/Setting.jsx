@@ -21,8 +21,34 @@ const Setting = () => {
   const [email, setEmail] = useState("");
   const [emailSaved, setEmailSaved] = useState(false);
 
+  const colors = {
+    background: darkMode ? "#121212" : "#ffffff",
+    text: darkMode ? "#f5f5f5" : "#1f2937",
+    secondaryText: darkMode ? "#bbbbbb" : "#6b7280",
+    border: darkMode ? "#333333" : "#e5e7eb",
+    inputBg: darkMode ? "#1e1e1e" : "#ffffff",
+  };
+
   const handleLogout = () => {
-    Alert.alert("Logout", "You have been logged out.");
+    Alert.alert(
+      "Logout Confirmation",
+      "Are you sure you want to log out?",
+      [
+        {
+          text: "Cancel",
+          style: "cancel",
+        },
+        {
+          text: "Yes",
+          style: "destructive",
+          onPress: () => {
+            Alert.alert("Logged Out", "You have been logged out.");
+            router.replace("/screens/home");
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   const saveEmail = () => {
@@ -36,10 +62,19 @@ const Setting = () => {
   };
 
   return (
-    <SafeAreaView className="flex-1 bg-white" edges={["top", "bottom"]}>
-      <ScrollView className="px-4 py-6">
+    <SafeAreaView
+      className="flex-1"
+      style={{ backgroundColor: colors.background }}
+      edges={["top", "bottom"]}
+    >
+      <ScrollView
+        className="px-4 py-6"
+        style={{ backgroundColor: colors.background }}
+      >
         <View className="flex-row items-center justify-between mb-6">
-          <Text className="text-2xl font-bold text-gray-800">Settings</Text>
+          <Text className="text-2xl font-bold" style={{ color: colors.text }}>
+            Settings
+          </Text>
           <Ionicons
             name="close"
             size={24}
@@ -47,6 +82,8 @@ const Setting = () => {
             onPress={() => router.back()}
           />
         </View>
+
+        {/* Profile */}
         <TouchableOpacity
           className="flex-row items-center gap-4 mb-6"
           onPress={() => router.push("/screens/pages/ProfileEdit")}
@@ -56,21 +93,36 @@ const Setting = () => {
             style={{ width: 60, height: 60, borderRadius: 30 }}
           />
           <View>
-            <Text className="text-lg font-semibold text-gray-800">
+            <Text
+              className="text-lg font-semibold"
+              style={{ color: colors.text }}
+            >
               Aman Verma
             </Text>
-            <Text className="text-sm text-gray-500">Tap to edit profile</Text>
+            <Text className="text-sm" style={{ color: colors.secondaryText }}>
+              Tap to edit profile
+            </Text>
           </View>
         </TouchableOpacity>
-        <View className="border-t border-gray-200 pt-4 mb-6">
-          <Text className="text-sm font-medium text-gray-500 mb-2">
+
+        {/* Preferences */}
+        <View
+          className="border-t pt-4 mb-6"
+          style={{ borderColor: colors.border }}
+        >
+          <Text
+            className="text-sm font-medium mb-2"
+            style={{ color: colors.secondaryText }}
+          >
             PREFERENCES
           </Text>
 
           <View className="flex-row items-center justify-between py-3">
             <View className="flex-row items-center gap-3">
               <Feather name="moon" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">Dark Mode</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                Dark Mode
+              </Text>
             </View>
             <Switch value={darkMode} onValueChange={setDarkMode} />
           </View>
@@ -78,7 +130,9 @@ const Setting = () => {
           <View className="flex-row items-center justify-between py-3">
             <View className="flex-row items-center gap-3">
               <Feather name="bell" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">Notifications</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                Notifications
+              </Text>
             </View>
             <Switch value={notifications} onValueChange={setNotifications} />
           </View>
@@ -91,13 +145,23 @@ const Setting = () => {
           >
             <View className="flex-row items-center gap-3">
               <Feather name="image" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">Chat Wallpaper</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                Chat Wallpaper
+              </Text>
             </View>
             <Feather name="chevron-right" size={20} color="#aaa" />
           </TouchableOpacity>
         </View>
-        <View className="border-t border-gray-200 pt-4 mb-6">
-          <Text className="text-sm font-medium text-gray-500 mb-2">
+
+        {/* Account */}
+        <View
+          className="border-t pt-4 mb-6"
+          style={{ borderColor: colors.border }}
+        >
+          <Text
+            className="text-sm font-medium mb-2"
+            style={{ color: colors.secondaryText }}
+          >
             ACCOUNT
           </Text>
 
@@ -107,7 +171,7 @@ const Setting = () => {
           >
             <View className="flex-row items-center gap-3">
               <Ionicons name="call" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">
+              <Text className="text-base" style={{ color: colors.text }}>
                 Change Phone Number
               </Text>
             </View>
@@ -120,23 +184,42 @@ const Setting = () => {
           >
             <View className="flex-row items-center gap-3">
               <Feather name="lock" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">Privacy</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                Privacy
+              </Text>
             </View>
             <Feather name="chevron-right" size={20} color="#aaa" />
           </TouchableOpacity>
         </View>
-        <View className="border-t border-gray-200 pt-4 mb-6">
-          <Text className="text-sm font-medium text-gray-500 mb-2">BACKUP</Text>
+
+        {/* Backup */}
+        <View
+          className="border-t pt-4 mb-6"
+          style={{ borderColor: colors.border }}
+        >
+          <Text
+            className="text-sm font-medium mb-2"
+            style={{ color: colors.secondaryText }}
+          >
+            BACKUP
+          </Text>
 
           <View className="space-y-3">
             <View>
-              <Text className="text-base text-gray-800 mb-1">Backup Email</Text>
+              <Text className="text-base mb-1" style={{ color: colors.text }}>
+                Backup Email
+              </Text>
             </View>
             <View className="flex gap-4">
               <TextInput
                 placeholder="Enter your email"
                 placeholderTextColor="#999"
-                className="border border-gray-300 px-4 py-2 rounded-lg text-gray-800"
+                className="border px-4 py-2 rounded-lg"
+                style={{
+                  borderColor: colors.border,
+                  color: colors.text,
+                  backgroundColor: colors.inputBg,
+                }}
                 value={email}
                 onChangeText={(text) => {
                   setEmail(text);
@@ -157,9 +240,18 @@ const Setting = () => {
             </View>
           </View>
         </View>
-        ✔️
-        <View className="border-t border-gray-200 pt-4 mb-6">
-          <Text className="text-sm font-medium text-gray-500 mb-2">ABOUT</Text>
+
+        {/* About */}
+        <View
+          className="border-t pt-4 mb-6"
+          style={{ borderColor: colors.border }}
+        >
+          <Text
+            className="text-sm font-medium mb-2"
+            style={{ color: colors.secondaryText }}
+          >
+            ABOUT
+          </Text>
 
           <TouchableOpacity
             onPress={() => router.push("/screens/pages/AboutAppInformation")}
@@ -171,7 +263,9 @@ const Setting = () => {
                 size={20}
                 color="#3b82f6"
               />
-              <Text className="text-base text-gray-800">About App</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                About App
+              </Text>
             </View>
             <Feather name="chevron-right" size={20} color="#aaa" />
           </TouchableOpacity>
@@ -182,7 +276,9 @@ const Setting = () => {
           >
             <View className="flex-row items-center gap-3">
               <Feather name="help-circle" size={20} color="#3b82f6" />
-              <Text className="text-base text-gray-800">Help & Support</Text>
+              <Text className="text-base" style={{ color: colors.text }}>
+                Help & Support
+              </Text>
             </View>
             <Feather name="chevron-right" size={20} color="#aaa" />
           </TouchableOpacity>
@@ -193,7 +289,7 @@ const Setting = () => {
           >
             <View className="flex-row items-center gap-3">
               <MaterialIcons name="logout" size={20} color="#ef4444" />
-              <Text className="text-base text-red-600 font-medium">Logout</Text>
+              <Text className="text-base font-medium text-red-600">Logout</Text>
             </View>
           </TouchableOpacity>
         </View>

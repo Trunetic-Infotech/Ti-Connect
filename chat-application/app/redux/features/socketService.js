@@ -3,6 +3,7 @@ import { io } from "socket.io-client";
 import store from "../store/store"; 
 import { setOnlineUsers, setTyping } from "../features/auth"; 
 
+
 const sockets = {}; // store multiple socket instances
 
 export const initSocket = (name, url, options = {}) => {

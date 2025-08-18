@@ -1,8 +1,8 @@
 import { Server } from "socket.io";
 import http from "http";
 import express from "express";
-import chat_messages from "../../config/Database.js"; 
-import users from "../../config/Database.js"
+import chat_messages from "../../config/Database.js";
+import users from "../../config/Database.js";
 const app = express();
 const server = http.createServer(app);
 
@@ -46,7 +46,9 @@ io.on("connection", (socket) => {
     const { sender_id, receiver_id, message } = data;
 
     if (!sender_id || !receiver_id || !message) {
-      return socket.emit("error", { message: "Sender ID, Receiver ID, and Message are required" });
+      return socket.emit("error", {
+        message: "Sender ID, Receiver ID, and Message are required",
+      });
     }
 
     const [result] = await chat_messages.execute(
@@ -83,7 +85,10 @@ io.on("connection", (socket) => {
       );
 
       delete userSocketMap[currentUserPhone];
-      io.emit("status_update", { userId: currentUserPhone, status: "Last_Seen" });
+      io.emit("status_update", {
+        userId: currentUserPhone,
+        status: "Last_Seen",
+      });
     }
     console.log("❌ User disconnected:", socket.id);
   });

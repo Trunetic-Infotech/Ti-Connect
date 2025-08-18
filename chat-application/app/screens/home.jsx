@@ -26,6 +26,8 @@ const Home = () => {
   const router = useRouter();
   const [state, setState] = useState();
 
+  // const API_URL =http://192.168.1.41:5000/api/v1
+
   useEffect(() => {
     AsyncStorage.getItem("view").then((v) => {
       if (v) setState(v);
@@ -55,7 +57,9 @@ const Home = () => {
 
     try {
       setLoading(true);
-      const response = await axios.post(`${API_URL}/api/v1/otp/send/${phone}`);
+      const response = await axios.post(
+        `${process.env.API_URL}/api/v1/otp/send/${phone}`
+      );
       console.log("OTP Send Response:", response);
       if (response.status === 200) {
         Alert.alert("OTP Sent", "Please check your phone.");
