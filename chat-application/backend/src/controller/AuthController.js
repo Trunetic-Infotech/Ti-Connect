@@ -5,7 +5,6 @@ import cloudinary from "../utils/images/Cloudinary.js";
 import { getReceiverSocketId } from "../utils/socket/socket.js";
 import { io } from "../utils/socket/socket.js";
 
-
 export const otpSend = async (req, res) => {
   try {
     const { phone_number } = req.params;
@@ -16,12 +15,12 @@ export const otpSend = async (req, res) => {
     const otp_store = Math.floor(1000 + Math.random() * 9000).toString();
     const expires_at = new Date(Date.now() + 5 * 60000); // 5 min expiry
 
-    // Store OTP in DB
-    await users.query(
-      "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
-      [phone_number, otp_store, expires_at]
-    );
- //check user already exists update otp so user can login again
+    // // Store OTP in DB
+    // await users.query(
+    //   "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
+    //   [phone_number, otp_store, expires_at]
+    // );
+    //check user already exists update otp so user can login again
 
     const [userRows] = await users.execute(
       "SELECT * FROM users WHERE phone_number = ?",
@@ -31,35 +30,33 @@ export const otpSend = async (req, res) => {
     if (userRows.length) {
       // User exists -> update OTP so they can log in again
       await users.execute(
-        "UPDATE users SET otp_store = ? WHERE phone_number = ?",
-        [otp_store, phone_number]
+        "UPDATE users SET otp_store = ?, expires_at = ? WHERE phone_number = ?",
+        [otp_store, expires_at, phone_number]
       );
 
-      // If no OTP row exists (maybe deleted earlier), insert new one
-      if (
-        (
-          await users.execute("SELECT 1 FROM users WHERE phone_number = ?", [
-            phone_number,
-          ])
-        )[0].length === 0
-      ) {
-        await users.execute(
-          "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
-          [phone_number, otp_store, expires_at]
-        );
-      }
+      // // If no OTP row exists (maybe deleted earlier), insert new one
+      // if (
+      //   (
+      //     await users.execute("SELECT 1 FROM users WHERE phone_number = ?", [
+      //       phone_number,
+      //     ])
+      //   )[0].length === 0
+      // ) {
+      //   await users.execute(
+      //     "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
+      //     [phone_number, otp_store, expires_at]
+      //   );
+      // }
     } else {
       // New user -> insert into OTP table
       await users.execute(
-        "INSERT INTO otp_store (phone_number, otp, expires_at) VALUES (?, ?, ?)",
+        "INSERT INTO users (phone_number, otp_store, expires_at) VALUES (?, ?, ?)",
         [phone_number, otp_store, expires_at]
       );
     }
 
-
     // Send SMS via Edumarc API
-    
-    
+
     const smsBody = {
       message: `Welcome to Trunetic! your secure OTP for registering on Application by Trunetic Infotech Private Limited is: ${otp_store}. This OTP expires in 5 minutes. Please enter it to finalize your registration. `,
       senderId: "TRNETC",
@@ -73,10 +70,10 @@ export const otpSend = async (req, res) => {
         apikey: process.env.EDUMARC_API_KEY,
       },
     });
-await users.execute(
-  "UPDATE users SET status = 'active' WHERE phone_number = ?",
-  [phone_number]
-);
+    await users.execute(
+      "UPDATE users SET status = 'active' WHERE phone_number = ?",
+      [phone_number]
+    );
     res.json({
       success: true,
       message: "OTP sent successfully",
@@ -137,7 +134,6 @@ await users.execute(
 //       global.io.emit("status_update", { userId: rows[0].phone_number, status: "Online" });
 //     }
 
-
 // // // When user logs out or disconnects
 // // await users.execute(
 // //   "UPDATE users SET status = 'Last_Seen', last_seen_at = NOW() WHERE phone_number = ?",
@@ -170,14 +166,14 @@ export const otpVerify = async (req, res) => {
       "SELECT * FROM users WHERE phone_number = ? AND otp_store = ? ",
       [phone_number, otp_store]
     );
-   console.log("OTP Verification Result:", rows[0]);
+    console.log("OTP Verification rrr Result:", rows[0]);
 
     if (!rows.length)
       return res.status(400).json({ error: "Phone number not found" });
 
     if (String(rows[0].otp_store) !== String(otp_store))
       return res.status(400).json({ error: "Invalid OTP" });
-   
+
     if (new Date(rows[0].expires_at) < new Date())
       return res.status(400).json({ error: "OTP expired" });
 
@@ -199,33 +195,35 @@ export const otpVerify = async (req, res) => {
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("status_update", {
         phone_number,
-        status: "active"
+        status: "active",
       });
     }
 
     // Generate token for user
-    const token = jwt.sign({ phone_number, status: "active", id: rows[0].id }, process.env.JWT_SECRET, {
-      expiresIn: "1d"
-    });
+    const token = jwt.sign(
+      { phone_number, status: "active", id: rows[0].id },
+      process.env.JWT_SECRET,
+      {
+        expiresIn: "1d",
+      }
+    );
 
     res.json({
       success: true,
       message: "User verified successfully",
-      data: { phone_number, token }
+      data: { phone_number, token },
     });
-
   } catch (err) {
     console.error(err.message);
-    res.status(500).json({ error: "Verification failed" , err});
+    res.status(500).json({ error: "Verification failed", err });
   }
 };
-
 
 export const setNameController = async (req, res) => {
   try {
     const user = req.user;
     const { username } = req.body;
-    const  id  = user.id; // ✅ properly destructure
+    const id = user.id; // ✅ properly destructure
 
     if (!username) {
       return res.status(400).json({ error: "Name is required" });
@@ -247,14 +245,12 @@ export const setNameController = async (req, res) => {
   }
 };
 
-
 export const uploadImageController = async (req, res) => {
   try {
     const user = req.user;
-    const  id  = user.id;
-   console.log("User ",user);
-    console.log("User Id",id);
-
+    const id = user.id;
+    console.log("User ", user);
+    console.log("User Id", id);
 
     if (!id) {
       return res.status(400).json({ error: "id is required" });
@@ -272,10 +268,10 @@ export const uploadImageController = async (req, res) => {
     });
 
     // Save image URL to DB
-    await users.execute(
-      "UPDATE users SET profile_picture = ? WHERE id = ?",
-      [result.secure_url, id]
-    );
+    await users.execute("UPDATE users SET profile_picture = ? WHERE id = ?", [
+      result.secure_url,
+      id,
+    ]);
 
     res.json({
       success: true,
@@ -289,15 +285,43 @@ export const uploadImageController = async (req, res) => {
 };
 
 
+export const getUserNameAndProfilePictureController = async(req,res)=>{
+  try {
+    const id = req.user.id;
+    console.log(id);
+
+    const [user] = await users.execute(`Select username, profile_picture from users where id = ?`, [id])
+
+
+    if(user.length === 0){
+      return res.status(404).json({
+        success: false,
+        message: "User not Found",
+      })
+    }
+
+    console.log(user);
+    
+
+    return res.status(200).json({
+      success: true,
+      message: "User Found",
+      data: user
+    })
+  } catch (error) {
+    console.log(error);
+    return res.status(500).json({success: false, message: error.message || "Internal Server Error"});
+    
+  }
+}
 
 export const getUserProfileController = async (req, res) => {
   try {
     const id = req.user.id;
 
-    const [rows] = await users.execute(
-      "SELECT * FROM users WHERE id = ?",
-      [id]
-    );
+    const [rows] = await users.execute("SELECT * FROM users WHERE id = ?", [
+      id,
+    ]);
 
     if (!rows.length) {
       return res.status(404).json({ error: "User not found" });
@@ -308,8 +332,7 @@ export const getUserProfileController = async (req, res) => {
     console.error("Error fetching user profile:", error);
     res.status(500).json({ error: "Failed to fetch user profile" });
   }
-}
-
+};
 
 export const logout = async (req, res) => {
   try {
@@ -320,7 +343,11 @@ export const logout = async (req, res) => {
     const phone_number = req.user.phone_number;
 
     // Clear cookie if using cookie-based auth
-    res.clearCookie("token", { httpOnly: true, secure: true, sameSite: "Strict" });
+    res.clearCookie("token", {
+      httpOnly: true,
+      secure: true,
+      sameSite: "Strict",
+    });
 
     // Update user status in DB
     await users.execute(
@@ -334,7 +361,7 @@ export const logout = async (req, res) => {
         // If you have user-specific rooms
         global.io.to(`status_room_${phone_number}`).emit("status_update", {
           phone_number,
-          status: "Offline"
+          status: "Offline",
         });
       } catch (socketError) {
         console.error("Socket emit failed:", socketError);

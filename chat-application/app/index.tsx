@@ -9,7 +9,7 @@ import { useDispatch } from "react-redux";
 import { setUser } from "../app/redux/features/auth";
 
 const socket = io("http://localhost:5000");
-const API_URL = "http://192.168.1.41:5000";
+const API_URL = "http://192.168.1.43:5000";
 
 export default function Index() {
   const router = useRouter();
@@ -55,7 +55,7 @@ export default function Index() {
       const token = await SecureStore.getItemAsync("token");
       console.log("Token:", token);
 
-      if (token) {
+      if (!token) {
         router.push("/screens/Chats");
       } else {
         router.push("/screens/home");

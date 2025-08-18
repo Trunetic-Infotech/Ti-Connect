@@ -14,7 +14,7 @@ import * as SecureStore from "expo-secure-store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
 
-const API_URL = "http://192.168.1.41:5000";
+const API_URL = "http://192.168.1.43:5000";
 const Home = () => {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,7 +58,7 @@ const Home = () => {
     try {
       setLoading(true);
       const response = await axios.post(
-        `${process.env.API_URL}/api/v1/otp/send/${phone}`
+        `${API_URL}/api/v1/otp/send/${phone}`
       );
       console.log("OTP Send Response:", response);
       if (response.status === 200) {
@@ -227,6 +227,7 @@ const Home = () => {
             className={`py-4 rounded-full ${
               loading ? "bg-gray-400" : "bg-indigo-600"
             } shadow-md`}
+         
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
