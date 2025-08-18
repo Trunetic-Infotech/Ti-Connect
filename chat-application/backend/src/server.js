@@ -13,7 +13,7 @@ app.use(
     origin: [
       "http://localhost:8081",
       "http://localhost:8080",
-      "http://192.168.1.36:8081",
+      "http://192.168.1.43:8081",
     ],
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],

@@ -7,7 +7,7 @@ import {
   TextInput,
   ActivityIndicator,
 } from "react-native";
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome5, Feather } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
@@ -15,12 +15,53 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 
-const API_URL = "http://192.168.1.41:5000";
+const API_URL = "http://192.168.1.43:5000";
 const UserName = () => {
+  const [user, setUser] = useState([])
   const [image, setImage] = useState(null);
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const [imgUrl, setImgUrl] = useState(null);
+
+  const fetcgUserNameAndProfilePicture = async()=>{
+
+      const token = await SecureStore.getItemAsync("token");
+      // console.log("Hllo", token);
+      
+    try {
+      const response = await axios.get(`${API_URL}/api/v1/get/userName/profile-picture`, {
+        headers:{
+          Authorization: `Bearer ${token}`,
+        }
+      })
+
+      if(response.data && response.data.data){
+        // setUserName(response.data.data.username);
+        // setImage(response.data.data.profile_picture);
+        // setUser(response.data.data)
+        // console.log(response.data.data);
+
+        const userData = response.data.data[0];
+        console.log(userData);
+        
+        setUserName(userData.username || "");
+        setImage(userData.profile_picture || null)
+        
+      }else{
+
+      }
+    } catch (error) {
+      console.log(error);
+      
+    }
+  }
+
+  useEffect(()=>{
+    fetcgUserNameAndProfilePicture()
+  },[])
+
+ 
 
   const pickImage = async () => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
