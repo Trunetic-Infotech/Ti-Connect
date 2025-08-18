@@ -1,7 +1,7 @@
 // socketService.js
 import { io } from "socket.io-client";
-import store from "./store"; 
-import { setOnlineUsers, setTyping } from "./authSlice"; 
+import store from "../store/store";
+import { setOnlineUsers, setTyping } from "../features/auth";
 
 const sockets = {}; // store multiple socket instances
 

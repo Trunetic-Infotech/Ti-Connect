@@ -49,24 +49,23 @@
     "react": "19.0.0",
     "react-dom": "19.0.0",
     "react-native": "0.79.5",
+    "react-native-animatable": "^1.4.0",
     "react-native-dotenv": "^3.4.11",
     "react-native-gesture-handler": "~2.24.0",
+    "react-native-linear-gradient": "^2.8.3",
     "react-native-modal": "^14.0.0-rc.1",
     "react-native-pager-view": "6.7.1",
     "react-native-reanimated": "~3.17.4",
     "react-native-safe-area-context": "^5.4.0",
     "react-native-screens": "~4.11.1",
     "react-native-share": "^12.2.0",
+    "react-native-swipe-list-view": "^3.2.9",
     "react-native-vector-icons": "^10.2.0",
     "react-native-web": "~0.20.0",
     "react-native-webrtc": "^124.0.6",
-<<<<<<< HEAD
-    "react-native-webview": "13.13.5"
-=======
     "react-native-webview": "13.13.5",
     "react-redux": "^9.2.0",
     "socket.io-client": "^4.8.1"
->>>>>>> 1f861b6390cf1421a1a79f7de618e7da00d96315
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
