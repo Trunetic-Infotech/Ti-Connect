@@ -66,22 +66,23 @@ const Chats = () => {
       </View>
 
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
-        {[
-          { title: "All", screen: "Chats" },
-          { title: "Unread", screen: "UnRead" },
-          { title: "Groups", screen: "Groups" },
-        ].map((item, index) => (
-          <TouchableOpacity
-            key={index}
-            onPress={() => navigation.navigate(item.screen)}
-            className="flex-1 mx-1 bg-indigo-500 py-2 rounded-full"
-            activeOpacity={0.9}
-          >
-            <Text className="text-center text-white font-semibold">
-              {item.title}
-            </Text>
-          </TouchableOpacity>
-        ))}
+     {[
+  { title: "All", path: "/screens/Chats" },
+  { title: "Unread", path: "/screens/pages/UnRead" },
+  { title: "Groups", path: "/screens/pages/Groups" },
+].map((item, index) => (
+  <TouchableOpacity
+    key={index}
+    onPress={() => router.push(item.path)}
+    className="flex-1 mx-1 bg-indigo-500 py-2 rounded-full"
+    activeOpacity={0.9}
+  >
+    <Text className="text-center text-white font-semibold">
+      {item.title}
+    </Text>
+  </TouchableOpacity>
+))}
+
       </View>
 
       <ScrollView

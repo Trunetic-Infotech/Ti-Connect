@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   ScrollView,
   Button,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { LinearGradient } from "expo-linear-gradient";
@@ -17,6 +18,7 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Contacts from "expo-contacts";
+import { axios } from 'axios';
 
 const AddContact = () => {
   const router = useRouter();
@@ -29,14 +31,26 @@ const AddContact = () => {
   const askPermissionAndLoadContacts = async () => {
     const { status } = await Contacts.requestPermissionsAsync();
     setPermissionStatus(status);
+    
 
     if (status === "granted") {
       const { data } = await Contacts.getContactsAsync({
         fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
       });
 
+      const response = await axios.get(process.env.API_URL("/get/userName/contact"), {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      console.log(response);
+      
+   if (response.data.success) {
       setContacts(data);
       setFilteredContacts(data); // initially show all
+   }else{
+    Alert.alert("Error", response.data.message || "Failed to load contacts");
+   }
     }
   };
 

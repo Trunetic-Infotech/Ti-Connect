@@ -374,3 +374,38 @@ export const logout = async (req, res) => {
     res.status(500).json({ error: "Failed to log out" });
   }
 };
+
+
+
+//check user contact 
+export const  shareAndCheckcontact =async(req,res) =>{
+  try {
+
+    const { phone_number  } = req.body;
+
+    if (!phone_number) {
+      return res.status(400).json({ error: "Phone number is required" });
+    }
+
+    // Check if user exists
+    const [user] = await users.execute("SELECT * FROM users WHERE phone_number = ?", [phone_number]);
+
+    if (user.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Emit contact shared event to the receiver
+    const receiverSocketId = getReceiverSocketId(phone_number);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("new_contact", {
+        userId: req.user.id,
+        contact: user[0],
+      });
+    }
+
+    res.json({ success: true, message: "send successfully" });
+  } catch (error) {
+   console.log("Error is fatching",error);
+   res.status(500).json({ error: "Failed to share and check contact" });
+  }
+}

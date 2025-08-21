@@ -55,7 +55,7 @@ export default function Index() {
       const token = await SecureStore.getItemAsync("token");
       console.log("Token:", token);
 
-      if (!token) {
+      if (token) {
         router.push("/screens/Chats");
       } else {
         router.push("/screens/home");

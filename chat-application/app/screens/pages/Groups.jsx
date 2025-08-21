@@ -9,7 +9,6 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
-import { useNavigation } from "@react-navigation/native";
 import logoImg from "../../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
 
@@ -24,7 +23,6 @@ const groupList = [
 ];
 
 const Groups = () => {
-  const navigation = useNavigation();
   const [search, setSearch] = useState("");
   const router = useRouter();
 
@@ -36,6 +34,7 @@ const Groups = () => {
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
+      {/* Header */}
       <View className="px-5 pt-6 pb-3 bg-indigo-600 rounded-b-3xl">
         <Image
           source={logoImg}
@@ -54,15 +53,16 @@ const Groups = () => {
         </View>
       </View>
 
+      {/* Tabs */}
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
         {[
-          { title: "All", screen: "Chats" },
-          { title: "Unread", screen: "UnRead" },
-          { title: "Groups", screen: "Groups" },
+          { title: "All", path: "../Chats" },
+          { title: "Unread", path: "../pages/UnRead" },
+          { title: "Groups", path: "../pages/Groups" },
         ].map((item, index) => (
           <TouchableOpacity
             key={index}
-            onPress={() => navigation.navigate(item.screen)}
+            onPress={() => router.push(item.path)}
             className="flex-1 mx-1 bg-indigo-500 py-2 rounded-full"
             activeOpacity={0.9}
           >
@@ -73,6 +73,7 @@ const Groups = () => {
         ))}
       </View>
 
+      {/* Groups List */}
       <ScrollView
         className="px-4"
         contentContainerStyle={{ paddingBottom: 120 }}
@@ -100,6 +101,7 @@ const Groups = () => {
         </View>
       </ScrollView>
 
+      {/* Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/CreateGroup")}
         className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
