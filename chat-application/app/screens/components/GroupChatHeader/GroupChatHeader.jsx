@@ -10,7 +10,7 @@ import {
 import { Ionicons, MaterialCommunityIcons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
 import { BlurView } from "expo-blur";
-import { useRouter } from "expo-router";
+import { useNavigation, useRouter } from "expo-router";
 import * as Audio from "expo-av";
 import dp from "../../../../assets/images/dp.jpg";
 import * as Camera from "expo-camera";
@@ -23,6 +23,7 @@ const GroupChatHeader = ({
   onLeaveGroup,
 }) => {
   const router = useRouter();
+  const navigation = useNavigation();
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [wallpaperModalVisible, setWallpaperModalVisible] = useState(false);
@@ -70,7 +71,7 @@ const GroupChatHeader = ({
             {/* Left: Back + Group Info */}
             <View className="flex-row items-center space-x-3 gap-2">
               <TouchableOpacity
-                onPress={() => router.push("/screens/pages/Groups")}
+                onPress={() => router.back()}
                 activeOpacity={0.7}
                 className="p-2 rounded-full bg-white/20"
               >
