@@ -239,7 +239,7 @@ const GroupMessage = () => {
                       onPress: () => {
                         setMessages([]);
                         setIsBlocked(false);
-                        router.push("/screens/pages/Groups");
+                        router.back();
                       },
                     },
                   ]

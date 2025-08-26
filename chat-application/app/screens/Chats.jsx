@@ -137,7 +137,7 @@ const Chats = () => {
 
       {/* Add Contact Floating Button */}
       <TouchableOpacity
-        onPress={() => navigation.navigate("AddContact")}
+        onPress={() => router.push("/screens/pages/AddContact")}
         className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
         <FontAwesome5 name="plus" size={26} color="#fff" />

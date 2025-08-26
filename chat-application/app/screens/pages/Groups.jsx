@@ -331,18 +331,20 @@ const Groups = () => {
       </View>
 
       {/* Tabs */}
+
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
         {[
-          { title: "All", screen: "Chats" },
-          { title: "Unread", screen: "UnRead" },
-          { title: "Groups", screen: "Groups" },
+          { title: "All", screen: "Chats", type: "navigate" },
+          { title: "Unread", screen: "UnRead", type: "navigate" },
+          { title: "Groups", type: "filter" }, // local filter tab
         ].map((item, index) => (
           <TouchableOpacity
             key={index}
             onPress={() => {
-              setSelectedTab(item.title);
-              if (item.screen !== "Groups") {
-                navigation.navigate(item.screen);
+              if (item.type === "filter") {
+                setSelectedTab("Groups"); // stay on Groups
+              } else {
+                navigation.navigate(item.screen); // go to Chats or UnRead
               }
             }}
             className={`flex-1 mx-1 py-2 rounded-full ${

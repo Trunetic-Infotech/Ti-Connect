@@ -13,12 +13,14 @@ import DocumentPickerModal from "../DocumentPicker/DocumentPicker";
 import VideoPicker from "../VideoPicker/VideoPicker";
 import AudioPicker from "../AudioPicker/AudioPicker";
 import useVoiceRecorder from "../VoiceRecorder/VoiceRecorder";
+import ContactsModal from "../Contacts/Contacts";
 
 const SendMessageBar = ({ messageText, setMessageText, onSend }) => {
   const [attachmentOptionsVisible, setAttachmentOptionsVisible] =
     useState(false);
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(false);
+  const [contactsVisible, setContactsVisible] = useState(false);
   const { recording, startRecording, stopRecording } = useVoiceRecorder();
 
   const handleSendPress = () => {
@@ -145,6 +147,25 @@ const SendMessageBar = ({ messageText, setMessageText, onSend }) => {
               </View>
               <Text className="text-xs text-center text-gray-700">Audio</Text>
             </TouchableOpacity>
+
+            {/* Contact Picker */}
+            <TouchableOpacity
+              className="items-center w-[30%] mb-4"
+              onPress={() => setContactsVisible(true)}
+            >
+              <View className="w-14 h-14 bg-pink-100 rounded-full justify-center items-center mb-1">
+                <Feather name="user" size={22} color="#db2777" />
+              </View>
+              <Text className="text-xs text-center text-gray-700">Contact</Text>
+            </TouchableOpacity>
+
+            <ContactsModal
+              visible={contactsVisible}
+              onSend={(contactMessage) => {
+                onSend(contactMessage);
+              }}
+              onClose={() => setContactsVisible(false)}
+            />
           </View>
         </View>
       )}
