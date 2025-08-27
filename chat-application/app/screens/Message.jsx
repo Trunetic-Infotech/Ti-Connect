@@ -215,7 +215,7 @@ const GroupMessage = () => {
                 You have left this group. You cannot send or receive messages.
               </Text>
               <TouchableOpacity
-                onPress={() => router.push("/screens/pages/Groups")}
+                onPress={() => router.back()}
                 className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
               >
                 <Text className="text-white font-semibold text-center">

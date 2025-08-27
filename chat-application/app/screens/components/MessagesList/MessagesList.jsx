@@ -175,21 +175,6 @@ const MessagesList = ({
               onLongPress={() => onLongPress(item)}
               style={{ opacity: isSelected ? 0.5 : 1 }}
             >
-              {/* ContactBubble Code */}
-              {/* {item.type === "text" && (
-                <TextBubble
-                  message={item}
-                  isOwnMessage={item.sender === "You"}
-                />
-              )} */}
-
-              {item.type === "image" && (
-                <ImageBubble
-                  message={item}
-                  isOwnMessage={item.sender === "You"}
-                />
-              )}
-
               {item.type === "contact" && (
                 <ContactBubble
                   message={item}
