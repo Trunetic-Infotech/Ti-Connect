@@ -92,9 +92,10 @@ import axios from "axios";
 import { useDispatch } from "react-redux";
 import { setUser } from "../app/redux/features/auth";
 import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen"; // 👈 custom bottom tab import
+import { Text } from "react-native";
 
-const socket = io("http://localhost:5000");
-const API_URL = "http://192.168.1.43:5000";
+
+const API_URL = "http://192.168.1.36:5000";
 
 export default function Index() {
   const router = useRouter();
@@ -134,22 +135,11 @@ export default function Index() {
     UserProfile();
   }, []);
 
-  // Example: test socket listeners
-  useEffect(() => {
-    socket.on("user_typing", (data) => {
-      console.log("User typing:", data);
-    });
 
-    socket.on("disconnect", () => {
-      console.log("Disconnected from server");
-    });
-
-    return () => {
-      socket.off("user_typing");
-      socket.off("disconnect");
-    };
-  }, []);
 
   // 👇 ab yaha directly bottom tab return ho raha hai
-  return <TabHomeScreen />;
+  return <>
+  <TabHomeScreen />
+  <Text className="mt-2"/>
+  </>;
 }
