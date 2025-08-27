@@ -13,6 +13,7 @@ import * as FileSystem from "expo-file-system";
 import * as Sharing from "expo-sharing";
 import { Video } from "expo-av";
 import VoicePlayer from "../VoicePlayer/VoicePlayer";
+import ContactBubble from "../ContactBubble/ContactBubble";
 
 const MessagesList = ({
   messages,
@@ -170,6 +171,17 @@ const MessagesList = ({
                 {item.time}
               </Text>
             )}
+            <TouchableOpacity
+              onLongPress={() => onLongPress(item)}
+              style={{ opacity: isSelected ? 0.5 : 1 }}
+            >
+              {item.type === "contact" && (
+                <ContactBubble
+                  message={item}
+                  isOwnMessage={item.sender === "You"}
+                />
+              )}
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Animated.View>

@@ -75,7 +75,8 @@ const CustomTabBar = ({ state, navigation }) => {
               <FontAwesome5
                 name={iconNames[index]}
                 size={26}
-                color={isFocused ? "#fff" : "#9CA3AF"}
+                // color={isFocused ? "#fff" : "#9CA3AF"}
+                color={isFocused ? "#fff" : "#333"}
               />
             </Animated.View>
           </TouchableOpacity>
@@ -136,3 +137,4 @@ const styles = StyleSheet.create({
     borderRadius: 25,
   },
 });
+``;
