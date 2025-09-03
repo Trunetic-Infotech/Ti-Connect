@@ -1,7 +1,7 @@
 // socketService.js
 import { io } from "socket.io-client";
-import store from "../store/store"; 
-import { setOnlineUsers, setTyping } from "../features/auth"; 
+import store from "../redux/store/store"; 
+import { setOnlineUsers, setTyping } from "../redux/features/auth"; 
 
 
 const sockets = {}; // store multiple socket instances
