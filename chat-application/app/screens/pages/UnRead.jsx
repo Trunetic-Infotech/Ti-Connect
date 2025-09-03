@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
@@ -13,7 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import logoImg from "../../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
 
-const chatList = [
+const initialChats = [
   {
     id: 1,
     name: "Aman Verma",
@@ -32,16 +33,33 @@ const chatList = [
 
 const UnRead = () => {
   const [search, setSearch] = useState("");
+  const [chats, setChats] = useState(initialChats);
   const navigation = useNavigation();
   const router = useRouter();
 
   // Filter only unread chats
-  const filteredChats = chatList.filter(
+  const filteredChats = chats.filter(
     (chat) =>
       chat.unread > 0 &&
       (chat.name.toLowerCase().includes(search.toLowerCase()) ||
         chat.text.toLowerCase().includes(search.toLowerCase()))
   );
+
+  // delete chat function
+  const handleDeleteChat = (id) => {
+    setChats((prev) => prev.filter((chat) => chat.id !== id));
+  };
+
+  const confirmDelete = (id) => {
+    Alert.alert("Delete Chat", "Are you sure you want to delete this chat?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDeleteChat(id),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -99,6 +117,8 @@ const UnRead = () => {
             <TouchableOpacity
               key={chat.id}
               onPress={() => router.push("/screens/Message")}
+              onLongPress={() => confirmDelete(chat.id)}
+              delayLongPress={400}
               activeOpacity={0.9}
               className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
             >

@@ -17,13 +17,13 @@ import { useRouter } from "expo-router";
 
 import dp from "../../assets/images/dp.jpg";
 
-import GroupChatHeader from "../screens/components/GroupChatHeader/GroupChatHeader";
 import SendMessageBar from "../screens/components/SenderMessage/SendMessageBar";
 import BlockedOverlay from "../screens/components/BlockContact/BlockedOverlay";
 import SelectedMessagesActionBar from "../screens/components/SelectedMessagesActionBar/SelectedMessagesActionBar";
 import MessagesList from "../screens/components/MessagesList/MessagesList";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
 
 const initialMessages = [
   {
@@ -184,7 +184,7 @@ const GroupMessage = () => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
-          <GroupChatHeader
+          {/* <GroupChatHeader
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
@@ -207,6 +207,13 @@ const GroupMessage = () => {
                 ]
               );
             }}
+          /> */}
+
+          <OneToOneChatHeader
+            // user={currentChatUser}
+            onWallpaperChange={handleWallpaperChange}
+            onBlock={() => setIsBlocked(true)}
+            onClearChat={clearChat}
           />
 
           {hasLeftGroup ? (

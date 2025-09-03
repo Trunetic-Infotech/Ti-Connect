@@ -6,14 +6,15 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import logoImg from "../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
+import logoImg from "../../assets/images/Chat-Logo.png";
 
-const chatList = [
+const initialChats = [
   {
     id: 1,
     name: "Aman Verma",
@@ -38,23 +39,55 @@ const chatList = [
     unread: true,
     isGroup: true,
   },
+  {
+    id: 4,
+    name: "Aman Verma",
+    text: "See you tomorrow!",
+    time: "8:15 AM",
+    unread: false,
+    isGroup: false,
+  },
+  {
+    id: 5,
+    name: "John Doe",
+    text: "Important file shared.",
+    time: "Yesterday",
+    unread: false,
+    isGroup: false,
+  },
 ];
 
 const Chats = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("All");
+  const [chatList, setChatList] = useState(initialChats);
   const navigation = useNavigation();
   const router = useRouter();
 
-  // Filter for All tab
+  // Filter chats
   const filteredChats = chatList.filter((chat) => {
     const matchesSearch =
       chat.name.toLowerCase().includes(search.toLowerCase()) ||
       chat.text.toLowerCase().includes(search.toLowerCase());
-
-    if (!matchesSearch) return false;
-    return true;
+    return matchesSearch;
   });
+
+  // Delete chat on long press
+  const handleDelete = (id, name) => {
+    Alert.alert(
+      "Delete Chat",
+      `Are you sure you want to delete chat with ${name}?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () =>
+            setChatList((prev) => prev.filter((chat) => chat.id !== id)),
+        },
+      ]
+    );
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -88,9 +121,9 @@ const Chats = () => {
             key={index}
             onPress={() => {
               if (item.type === "filter") {
-                setSelectedTab("All"); // local filter tab
+                setSelectedTab("All");
               } else {
-                navigation.navigate(item.screen); // navigate to page
+                navigation.navigate(item.screen);
               }
             }}
             className={`flex-1 mx-1 py-2 rounded-full ${
@@ -116,6 +149,7 @@ const Chats = () => {
               <TouchableOpacity
                 key={chat.id}
                 onPress={() => router.push("/screens/Message")}
+                onLongPress={() => handleDelete(chat.id, chat.name)} // 👈 Long press to delete
                 activeOpacity={0.9}
                 className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
               >
@@ -138,7 +172,7 @@ const Chats = () => {
       {/* Add Contact Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/AddContact")}
-        className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+        className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
         <Feather name="user-plus" size={26} color="#fff" />
       </TouchableOpacity>
