@@ -1,10 +1,11 @@
 import axios from "axios";
 import users from "../config/Database.js";
+import chat_messages from "../config/Database.js";
+import user_invite_links from "../config/Database.js"
 import jwt from "jsonwebtoken";
 import cloudinary from "../utils/images/Cloudinary.js";
-import { getReceiverSocketId } from "../utils/socket/socket.js";
-import { io } from "../utils/socket/socket.js";
-
+import { io,getReceiverSocketId } from "../utils/socket/socket.js";
+import crypto from "crypto";
 export const otpSend = async (req, res) => {
   try {
     const { phone_number } = req.params;
@@ -86,72 +87,6 @@ export const otpSend = async (req, res) => {
     res.status(500).json({ error: "Failed to send OTP" });
   }
 };
-
-// export const otpVerify = async (req, res) => {
-//   try {
-//     // const { otp_store } = req.body;
-//     const { phone_number, otp_store } = req.params;
-
-//     if (!phone_number || !otp_store)
-//       return res.status(400).json({ error: "phone number & OTP required" });
-
-//     // Fetch OTP from DB
-//     // Fetch OTP for given phone number
-//     const [rows] = await users.execute(
-//       "SELECT * FROM users WHERE phone_number = ? AND otp_store = ? ORDER BY id DESC LIMIT 1",
-//       [phone_number, otp_store]
-//     );
-
-//     if (!rows.length) {
-//       return res.status(400).json({ error: "Phone number not found" });
-//     }
-
-//     if (String(rows[0].otp_store) !== String(otp_store)) {
-//       return res.status(400).json({ error: "Invalid OTP" });
-//     }
-
-//     if (new Date(rows[0].expires_at) < new Date()) {
-//       return res.status(400).json({ error: "OTP expired" });
-//     }
-
-//     // ✅ OTP verified, save user phone_number in `users` table
-//     await users.execute("INSERT IGNORE INTO users (phone_number) VALUES (?)", [
-//       phone_number,
-//     ]);
-
-//     // delete OTP after verification
-//     const [result] = await users.execute(
-//        "UPDATE users SET otp_store = NULL, expires_at = NULL WHERE phone_number = ?",
-//       [phone_number]
-//     );
-
-//     if (result.affectedRows === 0) {
-//       console.error("Failed to delete OTP");
-//     }
-
-//     // Emit Online status instantly
-//     if (global.io) {
-//       global.io.emit("status_update", { userId: rows[0].phone_number, status: "Online" });
-//     }
-
-// // // When user logs out or disconnects
-// // await users.execute(
-// //   "UPDATE users SET status = 'Last_Seen', last_seen_at = NOW() WHERE phone_number = ?",
-// //   [phone_number]
-// // );
-
-// // // When user is manually set to Offline (no timestamp)
-// // await users.execute(
-// //   "UPDATE users SET status = 'Offline', last_seen_at = NULL WHERE phone_number = ?",
-// //   [phone_number]
-// // );
-
-//     res.json({ success: true, message: "User verified successfully" , data: { phone_number } });
-//   } catch (err) {
-//     console.error(err);
-//     res.status(500).json({ error: "Verification failed" });
-//   }
-// };
 
 export const otpVerify = async (req, res) => {
   try {
@@ -290,7 +225,7 @@ export const getUserNameAndProfilePictureController = async(req,res)=>{
     const id = req.user.id;
     console.log(id);
 
-    const [user] = await users.execute(`Select username, profile_picture from users where id = ?`, [id])
+    const [user] = await users.execute(`Select * from users where id = ?`, [id])
 
 
     if(user.length === 0){
@@ -336,76 +271,224 @@ export const getUserProfileController = async (req, res) => {
 
 export const logout = async (req, res) => {
   try {
-    if (!req.user || !req.user.phone_number) {
-      return res.status(401).json({ error: "User not authenticated" });
+    const phone_number = req.user?.phone_number;
+
+    // If using express-session, destroy session first
+    if (req.session) {
+      req.session.destroy((err) => {
+        if (err) console.error("Session destruction failed:", err);
+      });
     }
 
-    const phone_number = req.user.phone_number;
-
-    // Clear cookie if using cookie-based auth
-    res.clearCookie("token", {
+    // Clear auth cookies (if used)
+    const cookieOptions = {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production", // Only secure in prod
       sameSite: "Strict",
+    };
+    ["token", "connect.sid", "session"].forEach((cookie) => {
+      res.clearCookie(cookie, cookieOptions);
     });
 
-    // Update user status in DB
-    await users.execute(
-      "UPDATE users SET status = 'Offline', last_seen_at = NOW() WHERE phone_number = ?",
-      [phone_number]
-    );
+    // If using JWT in Authorization header, consider blacklisting token here
 
-    // Notify relevant clients via Socket.IO
-    if (global.io) {
-      try {
-        // If you have user-specific rooms
-        global.io.to(`status_room_${phone_number}`).emit("status_update", {
-          phone_number,
-          status: "Offline",
-        });
-      } catch (socketError) {
-        console.error("Socket emit failed:", socketError);
-      }
+    // Notify via socket (broadcast)
+    if (phone_number) {
+      io.emit("status_update", {
+        phone_number,
+        status: "inactive",
+      });
     }
 
-    res.json({ success: true, message: "Logged out successfully" });
+    return res.json({ success: true, message: "Logged out successfully" });
   } catch (error) {
-    console.error("Error logging out:", error);
-    res.status(500).json({ error: "Failed to log out" });
+    console.error("Logout error:", error);
+    return res.status(500).json({ error: "Failed to log out" });
   }
 };
 
 
 
-//check user contact 
-export const  shareAndCheckcontact =async(req,res) =>{
-  try {
+// export const shareAndCheckcontact = async (req, res) => {
+//   try {
 
-    const { phone_number  } = req.body;
+//     const { io } = req.app;
+
+//     const { phone_number } = req.body;
+
+//     if (!phone_number) {
+//       return res.status(400).json({ success: false, error: "Phone number is required" });
+//     }
+
+//     // Check if phone number exist or not if not create link  so its can we share to othere  user
+//      const [rows] = await users.execute(
+//       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
+//       [phone_number]
+//     );
+
+//     if (rows.length === 0) {
+//       return res.status(404).json({ success: false, error: "User not found" });
+//     }else if(rows.length === 1){
+//       //if user founded so sended message in chat_message
+//       const chatMessage = {
+//         sender_id: req.user.id,
+//         receiver_id: rows[0].id,
+//         message: "You have a new contact!",
+//       };
+//       await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
+//     }
+
+
+    
+
+//     const foundUser = rows[0];
+
+//     // Get receiver socket id
+//     const receiverSocketId = getReceiverSocketId(phone_number);
+//     if (receiverSocketId) {
+//       io.to(receiverSocketId).emit("new_contact", {
+//         fromUserId: req.user.id,  // sender
+//         contact: foundUser,       // receiver contact details
+//       });
+//     }
+
+//     return res.json({
+//       success: true,
+//       message: "Contact shared successfully",
+//       contact: foundUser,
+//     });
+
+//   } catch (error) {
+//     console.error("Error in shareAndCheckContact:", error);
+//     return res.status(500).json({ success: false, error: "Failed to share and check contact" });
+//   }
+// };
+
+
+
+//get all connect user list 
+export const getUsersForSidebar = async (req, res) => {
+  try {
+    const id = req.phone_number.id;
+   const { userSocketMap } = req.app; // Access userSocketMap from app locals
+
+    if (!id) {
+      return res.status(401).json({ success: false, error: "User not authenticated" });
+    }
+
+    // Get all active users except the current one
+    const [rows] = await users.execute(
+      `SELECT id, username, phone_number, status FROM users WHERE status = 'Active' AND id != ?`,
+      [id]
+    );
+
+    if (rows.length === 0) {
+      return res.status(404).json({ success: false, error: "No active users found" });
+    }
+      
+    //checking previous connected if yes show also detail
+    const userChatsExists = await chat_messages.execute(
+      "SELECT * FROM chat_messages WHERE sender_id = ? OR receiver_id = ?",
+      [id, id]
+    );
+
+    // Map user IDs to their chat details
+    const userChatMap = new Map();
+    userChatsExists.forEach(chat => {
+      const otherUserId = chat.sender_id === id ? chat.receiver_id : chat.sender_id;
+      if (!userChatMap.has(otherUserId)) {
+        userChatMap.set(otherUserId, []);
+      }
+      userChatMap.get(otherUserId).push(chat);
+    });
+
+      // Build online user list (based on sockets)
+    const onlineUserIds = new Set(Object.keys(userSocketMap)); // Faster lookup
+
+    // Combine user data with online status
+    const userList = rows.map(user => ({
+      ...user,
+      isOnline: onlineUserIds.has(user.id.toString()), // true/false
+    }));
+
+    // Return data to the client
+    return res.status(200).json({
+      success: true,
+      message: "Active users retrieved successfully",
+      data: userList,
+
+    });
+
+  } catch (error) {
+    console.error("Error showing list of contacts:", error);
+    return res.status(500).json({ success: false, error: "Failed to retrieve contacts" });
+  }
+};
+
+
+export const shareAndCheckcontact = async (req, res) => {
+  try {
+    const { io } = req.app;
+    const { phone_number } = req.body;
 
     if (!phone_number) {
-      return res.status(400).json({ error: "Phone number is required" });
+      return res.status(400).json({ success: false, error: "Phone number is required" });
     }
 
-    // Check if user exists
-    const [user] = await users.execute("SELECT * FROM users WHERE phone_number = ?", [phone_number]);
+    // Check if phone number exists
+    const [rows] = await users.execute(
+      "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
+      [phone_number]
+    );
 
-    if (user.length === 0) {
-      return res.status(404).json({ error: "User not found" });
-    }
+    // Case 1: User not found → create share link
+    if (rows.length === 0) {
+      // Create a unique token for invitation
+      const token = crypto.randomBytes(16).toString("hex");
 
-    // Emit contact shared event to the receiver
-    const receiverSocketId = getReceiverSocketId(phone_number);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("new_contact", {
-        userId: req.user.id,
-        contact: user[0],
+      // You can create an invitation entry in DB (optional)-not mandatory
+      await user_invite_links.execute(
+        "INSERT INTO user_invite_links (user_id, phone_number, token) VALUES (?, ?, ?)",
+        [req.user.id, phone_number, token]
+      );
+
+      // Generate shareable link (adjust base URL according to your frontend domain)
+      const shareLink = `${process.env.APP_BASE_URL}/invite/${token}`;
+
+      return res.status(200).json({
+        success: true,
+        message: "User not found. Share this link to invite the contact.",
+        share_link: shareLink,
       });
     }
 
-    res.json({ success: true, message: "send successfully" });
+    // Case 2: User found → send chat message
+    const foundUser = rows[0];
+    const chatMessage = {
+      sender_id: req.user.id,
+      receiver_id: foundUser.id,
+      message: "You have a new contact!",
+    };
+
+    await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
+
+    // Get receiver socket id
+    const receiverSocketId = getReceiverSocketId(foundUser.phone_number);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("new_contact", {
+        fromUserId: req.user.id, // sender
+        contact: foundUser,      // receiver contact details
+      });
+    }
+
+    return res.json({
+      success: true,
+      message: "Contact shared successfully",
+      contact: foundUser,
+    });
+
   } catch (error) {
-   console.log("Error is fatching",error);
-   res.status(500).json({ error: "Failed to share and check contact" });
+    console.error("Error in shareAndCheckContact:", error);
+    return res.status(500).json({ success: false, error: "Failed to share and check contact" });
   }
-}
+};

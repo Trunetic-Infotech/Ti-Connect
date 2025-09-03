@@ -2,6 +2,8 @@ import express from "express";
 import {
   getUserNameAndProfilePictureController,
   getUserProfileController,
+  getUsersForSidebar,
+  logout,
   otpSend,
   otpVerify,
   setNameController,
@@ -15,20 +17,26 @@ const router = express.Router();
 
 router.post("/otp/send/:phone_number", otpSend);
 router.post("/otp/verify/:phone_number/:otp_store", otpVerify);
-router.patch("/users/setName/:id", isAuthenticated, setNameController);
+router.patch("/users/setName", isAuthenticated, setNameController);
 router.patch(
   "/profile/upload/:id",
-  isAuthenticated,
+  isAuthenticated,                                                                                                                                                           
   upload.single("profile_picture"),
   uploadImageController
 );
-router.get("/get/userName/contact", isAuthenticated, shareAndCheckcontact);
 
 router.get(
   "/get/userName/profile-picture",
   isAuthenticated,
   getUserNameAndProfilePictureController
 );
-router.get("/users/profile/:id", isAuthenticated, getUserProfileController);
+
+
+router.get("/users/profile", isAuthenticated, getUserProfileController);
+router.get("/get/user/contact", isAuthenticated, shareAndCheckcontact);
+
+router.get("/list/online",isAuthenticated,getUsersForSidebar);
+
+router.post("/logout",logout);
 
 export default router;

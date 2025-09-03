@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { use, useState } from "react";
 import {
   View,
   Text,
@@ -12,14 +12,19 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
+import { useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
+import { setToken, setUser } from "../../redux/features/auth";
+import axios from "axios";
 
 const Setting = () => {
   const router = useRouter();
-
+  const user = useSelector((state) => state.auth.user);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [email, setEmail] = useState("");
   const [emailSaved, setEmailSaved] = useState(false);
+  const dispatch = useDispatch();
 
   const colors = {
     background: darkMode ? "#121212" : "#ffffff",
@@ -29,27 +34,30 @@ const Setting = () => {
     inputBg: darkMode ? "#1e1e1e" : "#ffffff",
   };
 
-  const handleLogout = () => {
-    Alert.alert(
-      "Logout Confirmation",
-      "Are you sure you want to log out?",
-      [
+  
+  const handleLogout = async () => {
+    try {
+      const response = await axios.post(
+        `${process.env.EXPO_API_URL}/logout`,
         {
-          text: "Cancel",
-          style: "cancel",
-        },
-        {
-          text: "Yes",
-          style: "destructive",
-          onPress: () => {
-            Alert.alert("Logged Out", "You have been logged out.");
-            router.replace("/screens/home");
-          },
-        },
-      ],
-      { cancelable: true }
-    );
-  };
+          withCredentials: true,
+        }
+      );
+      
+      if (response.data?.success) {
+        Alert.alert("Logged Out", "You have been logged out.");
+        dispatch(setToken(null));
+        dispatch(setUser(null));
+        router.replace("/screens/home");
+      } else {
+        Alert.alert("Logout Failed", "Please try again.");
+      }
+    } catch (error) {
+      console.error("Logout error:", error);
+    Alert.alert("Logout Error", "Something went wrong. Please try again.");
+  }
+};
+
 
   const saveEmail = () => {
     const isValid = /\S+@\S+\.\S+/.test(email);
@@ -89,7 +97,7 @@ const Setting = () => {
           onPress={() => router.push("/screens/pages/ProfileEdit")}
         >
           <Image
-            source={require("../../../assets/images/dp.jpg")}
+            source={user?.profile_picture ? { uri: user.profile_picture } : require("../../../assets/images/dp.jpg")}
             style={{ width: 60, height: 60, borderRadius: 30 }}
           />
           <View>
@@ -97,7 +105,13 @@ const Setting = () => {
               className="text-lg font-semibold"
               style={{ color: colors.text }}
             >
-              Aman Verma
+             {user?.username || "Name not Define"}
+            </Text>
+              <Text
+              className="text-lg font-semibold"
+              style={{ color: colors.text }}
+            >
+             {user?.phone_number || "phone_number not Define"}
             </Text>
             <Text className="text-sm" style={{ color: colors.secondaryText }}>
               Tap to edit profile
@@ -284,7 +298,9 @@ const Setting = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={handleLogout}
+            onPress={() => {
+              handleLogout();
+            }}
             className="flex-row items-center justify-between py-3"
           >
             <View className="flex-row items-center gap-3">

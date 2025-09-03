@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState,useEffect } from "react";
 import {
   View,
   Text,
@@ -12,49 +12,59 @@ import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import logoImg from "../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
-
-const chatList = [
-  {
-    id: 1,
-    name: "Aman Verma",
-    text: "I am good, what about you?",
-    time: "10:00 AM",
-    unread: true,
-    isGroup: false,
-  },
-  {
-    id: 2,
-    name: "John Doe",
-    text: "Let's connect later today.",
-    time: "9:45 AM",
-    unread: false,
-    isGroup: false,
-  },
-  {
-    id: 3,
-    name: "Priya Sharma (Team)",
-    text: "Meeting rescheduled.",
-    time: "Yesterday",
-    unread: true,
-    isGroup: true,
-  },
-];
+import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { setOnlineUsers } from "../redux/features/auth";
 
 const Chats = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("All");
   const navigation = useNavigation();
   const router = useRouter();
+  const [chatsList, setChatsList] = useState([]);
+ const user = useSelector((state) => state.auth.user);
+  const token = useSelector((state) => state.auth.token);
+  const dispatch = useDispatch();
+  const fetchChatList = async () => {
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_API_URL}/list/online/${user.phone_number}`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      console.log(response.data);
+
+      if (response.data?.success) {
+        const mappedChats = response.data.data.users.map((u) => ({
+          id: u.id,
+          name: u.username ?? "Unknown",
+          image: u.profile_picture ?? "",
+          text: u.lastMessage ?? "",
+          time: u.lastMessageTime ?? "",
+        }));
+        setChatsList(mappedChats);
+        dispatch(setOnlineUsers(response.data.data.users));
+      }
+    } catch (error) {
+      console.log("Error fetching user list:", error);
+    }
+  }; // <-- fixed closing brace
 
   // Filter for All tab
-  const filteredChats = chatList.filter((chat) => {
+  const filteredChats = chatsList.filter((chat) => {
     const matchesSearch =
       chat.name.toLowerCase().includes(search.toLowerCase()) ||
       chat.text.toLowerCase().includes(search.toLowerCase());
-
-    if (!matchesSearch) return false;
-    return true;
+    return matchesSearch;
   });
+
+  useEffect(() => {
+    fetchChatList();
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -106,6 +116,34 @@ const Chats = () => {
       </View>
 
       {/* Chat List (only for All tab) */}
+      {/* {selectedTab === "All" && (
+        <ScrollView
+          className="px-4"
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
+          <View className="space-y-4 gap-3">
+            {filteredChats.map((chat) => (
+              <TouchableOpacity
+                key={chat.id}
+                onPress={() => router.push("/screens/Message")}
+                activeOpacity={0.9}
+                className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
+              >
+                <View className="flex-row items-center gap-4">
+                  <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+                  <View>
+                    <Text className="text-lg font-semibold text-gray-800">
+                      {chat.name}
+                    </Text>
+                    <Text className="text-sm text-gray-500">{chat.text}</Text>
+                  </View>
+                </View>
+                <Text className="text-xs text-gray-400">{chat.time}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </ScrollView>
+      )} */}
       {selectedTab === "All" && (
         <ScrollView
           className="px-4"
@@ -134,7 +172,6 @@ const Chats = () => {
           </View>
         </ScrollView>
       )}
-
       {/* Add Contact Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/AddContact")}

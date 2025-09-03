@@ -1,39 +1,68 @@
 import multer from "multer";
 import { CloudinaryStorage } from "multer-storage-cloudinary";
-import cloudinary from "../../utils/images/Cloudinary.js"; 
+import cloudinary from "../../utils/images/Cloudinary.js";
+
+// Map MIME types → Cloudinary resource_type
+const getResourceType = (mimetype) => {
+  if (mimetype.startsWith("image/")) return "image";
+  if (mimetype.startsWith("video/") || mimetype.startsWith("audio/")) return "video"; 
+  return "raw"; // pdf, text, docs, zips, etc.
+};
+
 
 // Configure Cloudinary Storage
 const storage = new CloudinaryStorage({
   cloudinary,
   params: async (req, file) => {
-    const ext = file.mimetype.split("/")[1].toLowerCase();
+    const ext = file.originalname.split(".").pop().toLowerCase();
+
+    // Auto-detect folder (optional: separate by type)
+    let folder = "Uploads";
+    if (file.mimetype.startsWith("image/")) folder = "Images";
+    else if (file.mimetype.startsWith("video/")) folder = "Videos";
+    else if (file.mimetype.startsWith("audio/")) folder = "Audios";
+    else folder = "Documents";
+
     return {
-      folder: "Profile",
+      folder,
+      resource_type: getResourceType(file.mimetype),
       format: ext,
-      public_id: file.originalname.split(".")[0],
+      public_id: `${Date.now()}-${file.originalname.split(".")[0]}`,
     };
   },
 });
 
-// ✅ File Type Validation (Best Practice)
+// ✅ File Type Validation (Optional)
 const fileFilter = (req, file, cb) => {
-  const allowedFormats = ["png", "jpg", "jpeg", "pdf"];
-  const ext = file.mimetype.split("/")[1].toLowerCase();
+  // Allow all common types (or restrict if needed)
+ const allowedMimes = [
+  // Images
+  "image/png", "image/jpg", "image/jpeg", "image/webp", "image/gif",
+  // Videos
+  "video/mp4", "video/mov", "video/mpeg", "video/avi",
+  // Audio
+  "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/webm",
+  // Documents
+  "application/pdf", "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  "text/csv", "text/plain", "application/zip"
+];
 
-  if (allowedFormats.includes(ext)) {
+  
+  if (allowedMimes.includes(file.mimetype)) {
     cb(null, true);
   } else {
-    cb(new Error(`Invalid file format: ${ext}. Only PNG, JPG, JPEG, and PDF are allowed.`), false);
+    cb(new Error(`Unsupported file type: ${file.mimetype}`), false);
   }
 };
 
-// Multer Upload Config (Single Image)
+// Multer Upload Config (Single or Multiple)
 const upload = multer({
-  storage: storage,
-  fileFilter: fileFilter,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB file size limit
+  storage,
+  fileFilter,
+  limits: { fileSize: 30 * 1024 * 1024 }, // 30MB limit (adjust as needed)
 });
 
 export default upload;
-
-

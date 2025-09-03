@@ -53,6 +53,9 @@ const GroupMessage = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
+  
+
+  
   useEffect(() => {
     setTimeout(() => {
       setMessages(initialMessages);

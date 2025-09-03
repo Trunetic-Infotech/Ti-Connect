@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 
-const API_URL = "http://192.168.1.43:5000";
+// const API_URL = "http://192.168.1.36:5000";
 const UserName = () => {
   const [user, setUser] = useState([])
   const [image, setImage] = useState(null);
@@ -30,7 +30,7 @@ const UserName = () => {
       // console.log("Hllo", token);
       
     try {
-      const response = await axios.get(`${API_URL}/api/v1/get/userName/profile-picture`, {
+      const response = await axios.get(`${process.env.EXPO_API_URL}/get/userName/profile-picture`, {
         headers:{
           Authorization: `Bearer ${token}`,
         }
@@ -97,7 +97,7 @@ const UserName = () => {
       const response = await axios.patch(
           // AsyncStorage
     // await AsyncStorage.clear()
-        `${API_URL}/api/v1/users/setName/${userId}`,
+        `${process.env.EXPO_API_URL}/users/setName`,
         { username: userName },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -138,7 +138,7 @@ const UserName = () => {
       });
 
       const response = await axios.patch(
-        `${API_URL}/api/v1/profile/upload/${userId}`,
+        `${process.env.EXPO_API_URL}/profile/upload/${userId}`,
         formData,
         {
           headers: {

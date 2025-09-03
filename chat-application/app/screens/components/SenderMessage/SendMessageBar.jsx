@@ -14,6 +14,8 @@ import VideoPicker from "../VideoPicker/VideoPicker";
 import AudioPicker from "../AudioPicker/AudioPicker";
 import useVoiceRecorder from "../VoiceRecorder/VoiceRecorder";
 import ContactsModal from "../Contacts/Contacts";
+import { setTyping } from "../../../redux/features/auth";
+import { useDispatch, useSelector } from 'react-redux';
 
 const SendMessageBar = ({ messageText, setMessageText, onSend }) => {
   const [attachmentOptionsVisible, setAttachmentOptionsVisible] =
@@ -22,11 +24,29 @@ const SendMessageBar = ({ messageText, setMessageText, onSend }) => {
   const [documentVisible, setDocumentVisible] = useState(false);
   const [contactsVisible, setContactsVisible] = useState(false);
   const { recording, startRecording, stopRecording } = useVoiceRecorder();
+  const user = useSelector((state) => state.auth.user);
+  const token = useSelector((state) => state.auth.token);
+ const dispatch = useDispatch();
 
-  const handleSendPress = () => {
-    if (!messageText.trim()) return;
-    onSend({ type: "text", text: messageText.trim() });
-    setAttachmentOptionsVisible(false);
+  const handleSendPress =async () => {
+        const response = await axios.post(`${process.env.API_URL}/messages/${user.sender_id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+          data: {
+            text: messageText,
+            type: "text",
+          },
+        });
+
+        console.log(response);
+        if (response.data?.success) {
+          setMessageText("");
+          onSend({ type: "text", text: messageText });
+          dispatch(setTyping({ userId: user.id, isTyping: false }));
+        }
+        
+
   };
 
   const handleOutsidePress = () => {

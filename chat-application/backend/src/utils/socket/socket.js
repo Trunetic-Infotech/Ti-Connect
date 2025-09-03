@@ -8,7 +8,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: ["http://192.168.1.36:8081", "http://192.168.1.36:5000", "http://192.168.1.36:8081", "http://localhost:5000" ], 
+    origin:["*"],
+    // origin: ["http://192.168.1.36:8081", "http://192.168.1.36:5000", "http://192.168.1.36:8081", "http://localhost:5000" ], 
     methods: ["GET", "POST", "PUT", "DELETE", "PATCH"],
     allowedHeaders: ["Content-Type", "Authorization"],
   },
@@ -41,6 +42,12 @@ io.on("connection", (socket) => {
     io.emit("status_update", { userId: phone_number, status: "Online" });
   });
 
+  socket.on("getOnlineUsers", () => {
+  const onlineUserIds = Object.keys(userSocketMap);
+  socket.emit("onlineUsers", onlineUserIds);
+});
+
+  
   // When a message is sent
   socket.on("add_message", async (data) => {
     const { sender_id, receiver_id, message } = data;
@@ -74,6 +81,11 @@ io.on("connection", (socket) => {
   // Typing indicator
   socket.on("user_typing", (phone_number) => {
     socket.broadcast.emit("user_typing", { userId: phone_number });
+  });
+
+  // User stopped typing
+  socket.on("stop_typing", (phone_number) => {
+    socket.broadcast.emit("stop_typing", { userId: phone_number });
   });
 
   // When user disconnects

@@ -1,145 +1,74 @@
-// import { Text } from "react-native";
-// import "../global.css";
-// import { useRouter } from "expo-router";
-// import { useEffect } from "react";
-// import { io } from "socket.io-client";
-// import * as SecureStore from "expo-secure-store";
-// import axios from "axios";
-// import { useDispatch } from "react-redux";
-// import { setUser } from "../app/redux/features/auth";
-
-// const socket = io("http://localhost:5000");
-// const API_URL = "http://192.168.1.43:5000";
-
-// export default function Index() {
-//   const router = useRouter();
-//   const dispatch = useDispatch();
-
-//   // Fetch user profile
-//   const UserProfile = async () => {
-//     try {
-//       const token = await SecureStore.getItemAsync("token");
-//       const userId = await SecureStore.getItemAsync("userId");
-
-//       if (!token || !userId) return;
-
-//       console.log("User ID:", userId, token);
-
-//       const response = await axios.get(
-//         `${API_URL}/api/v1/users/profile/${userId}`,
-//         {
-//           headers: { Authorization: `Bearer ${token}` },
-//         }
-//       );
-
-//       if (response.status === 200) {
-//         const userData = response.data;
-//         dispatch(setUser(userData));
-//         console.log("User Profile:", userData);
-//       } else {
-//         console.error("Failed to fetch user profile");
-//       }
-//     } catch (err) {
-//       console.error("Error fetching user profile:", err);
-//     }
-//   };
-
-//   // Run once on mount
-//   useEffect(() => {
-//     UserProfile();
-//   }, []);
-
-//   // Check auth & redirect
-//   useEffect(() => {
-//     const checkAuth = async () => {
-//       const token = await SecureStore.getItemAsync("token");
-//       console.log("Token:", token);
-
-//       if (token) {
-//         router.push("/screens/Chats");
-//       } else {
-//         router.push("/screens/home");
-//       }
-//     };
-//     checkAuth();
-//   }, []);
-
-//   // Example: test socket listeners
-//   useEffect(() => {
-//     socket.on("user_typing", (data) => {
-//       console.log("User typing:", data);
-//     });
-
-//     socket.on("disconnect", () => {
-//       console.log("Disconnected from server");
-//     });
-
-//     return () => {
-//       socket.off("user_typing");
-//       socket.off("disconnect");
-//     };
-//   }, []);
-
-//   return <Text>Hello</Text>;
-// }
 
 import "../global.css";
 import { useRouter } from "expo-router";
-import { useEffect } from "react";
-import { io } from "socket.io-client";
-import * as SecureStore from "expo-secure-store";
+import { useEffect, useState } from "react";
 import axios from "axios";
 import { useDispatch } from "react-redux";
-import { setUser } from "../app/redux/features/auth";
-import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen"; // 👈 custom bottom tab import
-import { Text } from "react-native";
+import * as SecureStore from "expo-secure-store";
+import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen";
+import { View, Text, ActivityIndicator } from "react-native";
+import { useSelector } from "react-redux";
+import { setUser } from "./redux/features/auth";
 
-
-const API_URL = "http://192.168.1.36:5000";
 
 export default function Index() {
   const router = useRouter();
   const dispatch = useDispatch();
+  const [loading, setLoading] = useState(true);
 
-  // Fetch user profile
   const UserProfile = async () => {
     try {
-      const token = await SecureStore.getItemAsync("token");
-      const userId = await SecureStore.getItemAsync("userId");
-
-      if (!token || !userId) return;
-
-      console.log("User ID:", userId, token);
-
-      const response = await axios.get(
-        `${API_URL}/api/v1/users/profile/${userId}`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      if (response.status === 200) {
-        const userData = response.data;
-        dispatch(setUser(userData));
-        console.log("User Profile:", userData);
-      } else {
-        console.error("Failed to fetch user profile");
+      // 1. Load token from SecureStore
+        const token = await SecureStore.getItemAsync("token");
+      if (!token) {
+        console.log("No token found → redirecting to login");
+        router.replace("/screens/home"); 
+        return;
       }
-    } catch (err) {
-      console.error("Error fetching user profile:", err);
-    }
-  };
 
-  // Run once on mount
+      console.log("User Token:", token);
+
+      const response = await axios.get(`${process.env.EXPO_API_URL}/users/profile`, {
+        headers: {
+        Authorization: `Bearer ${token}`
+      },
+      });
+
+      console.log("User profile fatch",response);
+      
+    if (response.status === 200 && response.data?.data) {
+          dispatch(setUser(response.data.data)); // only user object
+        } else {
+          console.error("Failed to fetch user profile");
+          router.replace("/screens/home");
+        }
+      } catch (err) {
+        console.error("AuthController error:", err);
+        router.replace("/screens/home");
+      } finally {
+        setLoading(false);
+      }
+  };
+ 
   useEffect(() => {
     UserProfile();
+    console.log("UserProfile function called",UserProfile());
+
   }, []);
 
+  if (loading) {
+    return (
+      <View className="flex-1 items-center justify-center bg-white">
+        <ActivityIndicator size="large" color="#0000ff" />
+        <Text className="mt-2">Loading...</Text>
+      </View>
+    );
+  }
 
-
-  // 👇 ab yaha directly bottom tab return ho raha hai
-  return <>
-  <TabHomeScreen />
-  <Text className="mt-2"/>
-  </>;
+  return (
+    <>
+      <TabHomeScreen />
+      <Text className="mt-2"/>
+    </>
+  );
 }

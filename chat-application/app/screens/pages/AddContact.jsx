@@ -18,7 +18,7 @@ import {
 } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import * as Contacts from "expo-contacts";
-import { axios } from 'axios';
+import axios from "axios";
 
 const AddContact = () => {
   const router = useRouter();
@@ -31,26 +31,42 @@ const AddContact = () => {
   const askPermissionAndLoadContacts = async () => {
     const { status } = await Contacts.requestPermissionsAsync();
     setPermissionStatus(status);
-    
 
     if (status === "granted") {
-      const { data } = await Contacts.getContactsAsync({
-        fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
-      });
+      try {
+        // ✅ Load device contacts
+        const { data } = await Contacts.getContactsAsync({
+          fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+        });
 
-      const response = await axios.get(process.env.API_URL("/get/userName/contact"), {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      console.log(response);
-      
-   if (response.data.success) {
-      setContacts(data);
-      setFilteredContacts(data); // initially show all
-   }else{
-    Alert.alert("Error", response.data.message || "Failed to load contacts");
-   }
+        // ✅ Example backend call (token must be defined or passed)
+        let serverContacts = [];
+        try {
+          const response = await axios.get(
+            `${process.env.EXPO_API_URL}/get/user/contact`,
+            {
+              headers: {
+                Authorization: `Bearer ${process.env.EXPO_API_TOKEN || ""}`,
+              },
+            }
+          );
+          if (response.data.success) {
+            serverContacts = response.data.contacts || [];
+          } else {
+            Alert.alert("Error", response.data.message || "Failed to load server contacts");
+          }
+        } catch (err) {
+          console.log("Server contacts fetch error:", err.message);
+        }
+
+        // ✅ Merge contacts (local + server if needed)
+        const combinedContacts = [...data, ...serverContacts];
+
+        setContacts(combinedContacts);
+        setFilteredContacts(combinedContacts);
+      } catch (err) {
+        Alert.alert("Error", "Failed to load contacts: " + err.message);
+      }
     }
   };
 
@@ -67,9 +83,7 @@ const AddContact = () => {
       const filtered = contacts.filter(
         (c) =>
           c.name?.toLowerCase().includes(lower) ||
-          c.phoneNumbers?.some((p) =>
-            p.number?.toLowerCase().includes(lower)
-          )
+          c.phoneNumbers?.some((p) => p.number?.toLowerCase().includes(lower))
       );
       setFilteredContacts(filtered);
     }
@@ -155,14 +169,13 @@ const AddContact = () => {
         <View className="mb-4">
           <Text className="text-lg font-semibold text-indigo-800 mb-3">
             Contacts
-          </Text>
-
+          </Text> 
           {filteredContacts.length > 0 ? (
             filteredContacts.map((contact, index) => (
-              <View
+              <TouchableOpacity
                 key={index}
                 className="flex-row items-center space-x-4 bg-gray-50 p-3 rounded-xl mb-2 shadow-sm gap-2"
-                 onPress={() => router.push("../Message")} 
+                onPress={() => router.push("../Message")}
               >
                 <View className="p-2 bg-indigo-100 rounded-full">
                   <FontAwesome5 name="user-circle" size={28} color="#4f46e5" />
@@ -177,7 +190,7 @@ const AddContact = () => {
                       : "No Number"}
                   </Text>
                 </View>
-              </View>
+              </TouchableOpacity>
             ))
           ) : (
             <Text className="text-center text-gray-400">No contacts found</Text>

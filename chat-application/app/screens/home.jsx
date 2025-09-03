@@ -11,10 +11,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Entypo } from "@expo/vector-icons";
 import axios from "axios";
 import * as SecureStore from "expo-secure-store";
+import { useDispatch } from "react-redux";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useRouter } from "expo-router";
+import { setToken } from "./../redux/features/auth";
 
-const API_URL = "http://192.168.1.43:5000";
+// const API_URL = "http://192.168.1.36:5000";
 const Home = () => {
   const [phone, setPhone] = useState("");
   const [loading, setLoading] = useState(false);
@@ -25,8 +27,7 @@ const Home = () => {
   const [timer, setTimer] = useState(0);
   const router = useRouter();
   const [state, setState] = useState();
-
-  // const API_URL =http://192.168.1.41:5000/api/v1
+  const dispatch = useDispatch();
 
   useEffect(() => {
     AsyncStorage.getItem("view").then((v) => {
@@ -57,8 +58,9 @@ const Home = () => {
 
     try {
       setLoading(true);
+      console.log(process.env.EXPO_API_URL);
       const response = await axios.post(
-        `${API_URL}/api/v1/otp/send/${phone}`
+        `${process.env.EXPO_API_URL}/otp/send/${phone}`
       );
       console.log("OTP Send Response:", response);
       if (response.status === 200) {
@@ -99,14 +101,20 @@ const Home = () => {
 
     try {
       setLoading(true);
+      
+      
       console.log(sendData);
       const res = await axios.post(
-        `${API_URL}/api/v1/otp/verify/${sendData.phone_number}/${otp.join("")}`
+        `${process.env.EXPO_API_URL}/otp/verify/${sendData.phone_number}/${otp.join("")}`
       );
       if (res.status === 200 && res.data?.data?.token) {
-        await SecureStore.setItemAsync("token", res.data.data.token);
-        const savedToken = await SecureStore.getItemAsync("token");
-        console.log("Token saved:", savedToken);
+            const token = res.data.data.token;
+
+      // Persist
+      await SecureStore.setItemAsync("token", token);
+
+      // Put in Redux
+      dispatch(setToken(token));
 
         router.push({
           pathname: "../screens/UserName",
