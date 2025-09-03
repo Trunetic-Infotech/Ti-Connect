@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
@@ -13,7 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import logoImg from "../../../assets/images/Chat-Logo.png";
 
-const groupList = [
+const initialGroups = [
   {
     id: 1,
     name: "Friends Group",
@@ -40,15 +41,32 @@ const groupList = [
 const Groups = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("Groups");
+  const [groups, setGroups] = useState(initialGroups);
   const navigation = useNavigation();
   const router = useRouter();
 
   // 🔍 Filtered groups
-  const filteredGroups = groupList.filter(
+  const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(search.toLowerCase()) ||
       group.text.toLowerCase().includes(search.toLowerCase())
   );
+
+  // ✅ delete group
+  const handleDeleteGroup = (id) => {
+    setGroups((prev) => prev.filter((group) => group.id !== id));
+  };
+
+  const confirmDelete = (id) => {
+    Alert.alert("Delete Group", "Are you sure you want to delete this group?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDeleteGroup(id),
+      },
+    ]);
+  };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -72,7 +90,6 @@ const Groups = () => {
       </View>
 
       {/* Tabs */}
-
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
         {[
           { title: "All", screen: "Chats", type: "navigate" },
@@ -100,7 +117,7 @@ const Groups = () => {
         ))}
       </View>
 
-      {/* Groups List (sirf Groups tab pe show kare) */}
+      {/* Groups List */}
       {selectedTab === "Groups" && (
         <ScrollView
           className="px-4"
@@ -111,6 +128,8 @@ const Groups = () => {
               <TouchableOpacity
                 key={group.id}
                 onPress={() => router.push("/screens/pages/GroupMessage")}
+                onLongPress={() => confirmDelete(group.id)}
+                delayLongPress={400}
                 activeOpacity={0.9}
                 className="flex-row justify-between items-center bg-indigo-100 px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
               >
@@ -133,7 +152,7 @@ const Groups = () => {
       {/* Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/CreateGroup")}
-        className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+        className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
         <Feather name="user-plus" size={26} color="#fff" />
       </TouchableOpacity>

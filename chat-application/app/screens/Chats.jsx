@@ -6,6 +6,7 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
+  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
@@ -19,6 +20,7 @@ import { setOnlineUsers } from "../redux/features/auth";
 const Chats = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("All");
+  const [chatList, setChatList] = useState(initialChats);
   const navigation = useNavigation();
   const router = useRouter();
   const [chatsList, setChatsList] = useState([]);
@@ -54,7 +56,7 @@ const Chats = () => {
     }
   }; // <-- fixed closing brace
 
-  // Filter for All tab
+  // Filter chats
   const filteredChats = chatsList.filter((chat) => {
     const matchesSearch =
       chat.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -65,6 +67,23 @@ const Chats = () => {
   useEffect(() => {
     fetchChatList();
   }, []);
+
+  // Delete chat on long press
+  // const handleDelete = (id, name) => {
+  //   Alert.alert(
+  //     "Delete Chat",
+  //     `Are you sure you want to delete chat with ${name}?`,
+  //     [
+  //       { text: "Cancel", style: "cancel" },
+  //       {
+  //         text: "Delete",
+  //         style: "destructive",
+  //         onPress: () =>
+  //           setChatList((prev) => prev.filter((chat) => chat.id !== id)),
+  //       },
+  //     ]
+  //   );
+  // };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -98,9 +117,9 @@ const Chats = () => {
             key={index}
             onPress={() => {
               if (item.type === "filter") {
-                setSelectedTab("All"); // local filter tab
+                setSelectedTab("All");
               } else {
-                navigation.navigate(item.screen); // navigate to page
+                navigation.navigate(item.screen);
               }
             }}
             className={`flex-1 mx-1 py-2 rounded-full ${
@@ -175,7 +194,7 @@ const Chats = () => {
       {/* Add Contact Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/AddContact")}
-        className="absolute bottom-11 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+        className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
         <Feather name="user-plus" size={26} color="#fff" />
       </TouchableOpacity>

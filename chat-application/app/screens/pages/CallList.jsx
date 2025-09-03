@@ -7,11 +7,12 @@ import {
   TextInput,
   TouchableOpacity,
   RefreshControl,
+  Alert,
 } from "react-native";
 import { Feather } from "@expo/vector-icons";
 import { SafeAreaView } from "react-native-safe-area-context";
 
-const callsData = [
+const initialCallsData = [
   {
     id: "1",
     name: "John Doe",
@@ -52,8 +53,10 @@ export default function CallListScreen() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState("All");
   const [refreshing, setRefreshing] = useState(false);
+  const [calls, setCalls] = useState(initialCallsData);
 
-  const filteredData = callsData.filter((call) => {
+  // 🔍 filter calls
+  const filteredData = calls.filter((call) => {
     const matchesSearch = call.name
       .toLowerCase()
       .includes(searchQuery.toLowerCase());
@@ -67,6 +70,22 @@ export default function CallListScreen() {
     return matchesSearch && matchesFilter;
   });
 
+  // ✅ delete call
+  const handleDeleteCall = (id) => {
+    setCalls((prev) => prev.filter((call) => call.id !== id));
+  };
+
+  const confirmDelete = (id) => {
+    Alert.alert("Delete Call", "Do you want to delete this call?", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDeleteCall(id),
+      },
+    ]);
+  };
+
   const renderCallItem = ({ item }) => {
     const iconProps = {
       missed: { name: "arrow-down-left", color: "red" },
@@ -75,7 +94,12 @@ export default function CallListScreen() {
     };
 
     return (
-      <TouchableOpacity className="flex-row items-center py-3 border-b border-gray-300">
+      <TouchableOpacity
+        className="flex-row items-center py-3 border-b border-gray-300"
+        onLongPress={() => confirmDelete(item.id)}
+        delayLongPress={400}
+        activeOpacity={0.9}
+      >
         <Image
           source={{ uri: item.avatar }}
           className="w-12 h-12 rounded-full mr-3"
@@ -151,6 +175,7 @@ export default function CallListScreen() {
         })}
       </View>
 
+      {/* Calls List */}
       <FlatList
         data={filteredData}
         keyExtractor={(item) => item.id}
