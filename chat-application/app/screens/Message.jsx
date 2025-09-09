@@ -24,6 +24,7 @@ import MessagesList from "../screens/components/MessagesList/MessagesList";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
+import { useLocalSearchParams } from "expo-router"; 
 
 const initialMessages = [
   {
@@ -40,7 +41,7 @@ const initialMessages = [
   },
 ];
 
-const GroupMessage = () => {
+const Message = () => {
   const [messages, setMessages] = useState([]);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -48,6 +49,11 @@ const GroupMessage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [hasLeftGroup, setHasLeftGroup] = useState(false);
   const [wallpaperUri, setWallpaperUri] = useState(null);
+  const params = useLocalSearchParams();
+  const user = JSON.parse(params.user);
+
+  console.log("user",user);
+  
 
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -217,6 +223,7 @@ const GroupMessage = () => {
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
+            user={user}
           />
 
           {hasLeftGroup ? (
@@ -290,4 +297,4 @@ const GroupMessage = () => {
   );
 };
 
-export default GroupMessage;
+export default Message;

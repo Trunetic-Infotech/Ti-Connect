@@ -242,20 +242,32 @@ const AddContact = () => {
   const [filteredContacts, setFilteredContacts] = useState([]);
   const [permissionStatus, setPermissionStatus] = useState(null);
   const [phoneNumbers, setPhoneNumbers] = useState([]);
-  const syncContactsWithServer = async () => {
+  const syncContactsWithServer = async (phone_number, contactName) => {
     try {
-
+      console.log("user name",phone_contactNamenumber);
+      
       // 🔹 Send to server
       const response = await axios.post(
         `${process.env.EXPO_API_URL}/get/user/contact`,
-        { phone_number: phoneNumbers },
+        { phone_number, contactName },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       console.log("Server raw response:", response.data);
 
       if(response.data.success){
-        router.push("../Message")
+        const user = {
+  ...response.data.contact,  // spread the contact object
+  name: response.data.name   // attach name (if it exists)
+};
+
+console.log("Final user:", user);
+
+router.push({
+  pathname: "../Message",
+  params: { user: JSON.stringify(user) }
+});
+
       }else{
        console.log("Contact sync failed:", response.data.message);
        Alert.alert("Error", "Failed to sync contacts: " + response.data.message);
@@ -295,18 +307,26 @@ const AddContact = () => {
 
   // 🔍 Filter contacts by name or number
   useEffect(() => {
-    if (!searchText.trim()) {
-      setFilteredContacts(contacts);
-    } else {
-      const lower = searchText.toLowerCase();
-      const filtered = contacts.filter(
-        (c) =>
-          c.name?.toLowerCase().includes(lower) ||
-          c.phoneNumbers?.some((p) => p.number?.toLowerCase().includes(lower))
-      );
-      setFilteredContacts(filtered);
-    }
-  }, [searchText, contacts]);
+  if (!searchText.trim()) {
+    setFilteredContacts(contacts);
+  } else {
+    const lower = searchText.toLowerCase();
+    const filtered = contacts.filter(
+      (c) =>
+        c.name?.toLowerCase().includes(lower) ||
+        c.phoneNumbers?.some((p) => p.number?.toLowerCase().includes(lower))
+    );
+    setFilteredContacts(filtered);
+
+    // log all phone numbers from filtered contacts
+    // filtered.forEach((c) => {
+    //   c.phoneNumbers?.forEach((p) => {
+    //     console.log("Phone:", p.number);
+    //   });
+    // });
+  }
+}, [searchText, contacts]);
+
 
   if (permissionStatus === null) {
     return (
@@ -411,10 +431,12 @@ const AddContact = () => {
                 <TouchableOpacity
                   className="flex-row items-center space-x-4"
                   onPress={() => {
-                    syncContactsWithServer(contact.phoneNumbers);
+                    console.log(contact.phoneNumbers[0]?.number);
+                    alert(contact.phoneNumbers[0]?.number);
+                    syncContactsWithServer(contact.phoneNumbers[0]?.number, contact.name);
                   }}
 
-                  disabled={!contact.registeredUser}
+                  // disabled={!contact.registeredUser}
                 >
                   <View className="p-2 bg-indigo-100 rounded-full">
                     <FontAwesome5

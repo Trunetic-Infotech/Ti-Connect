@@ -17,7 +17,7 @@ import WallPaper from "../ChangeWallPaper/WallPaper";
 import dp from "../../../../assets/images/dp.jpg";
 
 const OneToOneChatHeader = ({
-  user = { name: "John Doe", status: "Online", avatar: dp },
+  user ,
   onWallpaperChange,
   onBlock,
   onClearChat,
@@ -79,7 +79,7 @@ const OneToOneChatHeader = ({
 
               <View className="flex-row items-center">
                 <Image
-                  source={user?.avatar || dp}
+                  source={user?.profile_picture || dp}
                   className="w-10 h-10 rounded-full mr-3 border border-white/30"
                 />
                 <TouchableOpacity

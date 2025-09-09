@@ -521,7 +521,13 @@ export const shareAndCheckcontact = async (req, res) => {
   try {
      //soket io
     const { io } = req.app;
-    const { phone_number } = req.body;
+    const { phone_number, name } = req.body;
+    console.log(name);
+    
+const cleanedNumber = phone_number.replace(/^\+91/, "");
+console.log(cleanedNumber);
+
+    
 
     if (!phone_number) {
       return res.status(400).json({ success: false, error: "Phone number is required" });
@@ -530,7 +536,7 @@ export const shareAndCheckcontact = async (req, res) => {
     // Check if phone number exists
     const [rows] = await users.execute(
       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
-      [phone_number]
+      [cleanedNumber]
     );
 
     // Case 1: User not found → create share link
@@ -541,27 +547,30 @@ export const shareAndCheckcontact = async (req, res) => {
 
    
     const foundUser = rows[0];
+    console.log(foundUser);
+    
     const chatMessage = {
       sender_id: req.user.id,
       receiver_id: foundUser.id,
       message: "You have a new contact!",
     };
 
-    await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
+    
 
     // Get receiver socket id
     const receiverSocketId = getReceiverSocketId(foundUser.phone_number);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("new_contact", {
         fromUserId: req.user.id, // sender
-        contact: foundUser,      // receiver contact details
+        contact: foundUser,
+        name: name,      // receiver contact details
       });
     }
 
     res.status(200).json({
       success: true,
       message: "User found",
-      contact: rows[0],
+      contact: foundUser,
     });
 
     } catch (err) {

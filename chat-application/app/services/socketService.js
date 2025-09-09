@@ -4,7 +4,7 @@ import { setOnlineUsers, setTyping } from "../redux/features/auth";
 
 const sockets = {};
 
-export const initSocket = (name, url = "http://192.168.1.49:5000", options = {}) => {
+export const initSocket = (name, url = "http://192.168.1.46:5000", options = {}) => {
   if (sockets[name]) {
     console.warn(`Socket "${name}" already exists`);
     return sockets[name];
