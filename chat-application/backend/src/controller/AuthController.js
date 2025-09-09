@@ -1,10 +1,10 @@
 import axios from "axios";
 import users from "../config/Database.js";
 import chat_messages from "../config/Database.js";
-import user_invite_links from "../config/Database.js"
+import user_invite_links from "../config/Database.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../utils/images/Cloudinary.js";
-import { io,getReceiverSocketId } from "../utils/socket/socket.js";
+import { io, getReceiverSocketId } from "../utils/socket/socket.js";
 import crypto from "crypto";
 export const otpSend = async (req, res) => {
   try {
@@ -219,36 +219,63 @@ export const uploadImageController = async (req, res) => {
   }
 };
 
-
-export const getUserNameAndProfilePictureController = async(req,res)=>{
+export const getUserNameAndProfilePictureController = async (req, res) => {
   try {
     const id = req.user.id;
     console.log(id);
 
-    const [user] = await users.execute(`Select * from users where id = ?`, [id])
+    const [user] = await users.execute(`Select * from users where id = ?`, [
+      id,
+    ]);
 
-
-    if(user.length === 0){
+    if (user.length === 0) {
       return res.status(404).json({
         success: false,
         message: "User not Found",
-      })
+      });
     }
 
     console.log(user);
-    
 
     return res.status(200).json({
       success: true,
       message: "User Found",
-      data: user
-    })
+      data: user,
+    });
   } catch (error) {
     console.log(error);
-    return res.status(500).json({success: false, message: error.message || "Internal Server Error"});
-    
+    return res
+      .status(500)
+      .json({
+        success: false,
+        message: error.message || "Internal Server Error",
+      });
   }
-}
+};
+
+// set email for backup
+export const setBackupEmailController = async (req, res) => {
+  
+  try {
+    const userId = req.user.id;
+    const { email } = req.body;
+    console.log(userId, email);
+    
+    if (!email) {
+      return res.status(400).json({ error: "Email is required" });
+    }
+    await users.execute("UPDATE users SET email = ? WHERE id = ?", [
+      email,
+      userId,
+    ]);
+    res.json({ success: true, message: "Backup email set successfully" });
+  } catch (error) {
+    console.error("Error setting backup email:", error);
+    res.status(500).json({ error: "Failed to set backup email" });
+  }
+  
+};
+
 
 export const getUserProfileController = async (req, res) => {
   try {
@@ -307,8 +334,6 @@ export const logout = async (req, res) => {
   }
 };
 
-
-
 // export const shareAndCheckcontact = async (req, res) => {
 //   try {
 
@@ -338,9 +363,6 @@ export const logout = async (req, res) => {
 //       await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
 //     }
 
-
-    
-
 //     const foundUser = rows[0];
 
 //     // Get receiver socket id
@@ -364,16 +386,16 @@ export const logout = async (req, res) => {
 //   }
 // };
 
-
-
-//get all connect user list 
+//get all connect user list
 export const getUsersForSidebar = async (req, res) => {
   try {
     const id = req.phone_number.id;
-   const { userSocketMap } = req.app; // Access userSocketMap from app locals
+    const { userSocketMap } = req.app; // Access userSocketMap from app locals
 
     if (!id) {
-      return res.status(401).json({ success: false, error: "User not authenticated" });
+      return res
+        .status(401)
+        .json({ success: false, error: "User not authenticated" });
     }
 
     // Get all active users except the current one
@@ -383,9 +405,11 @@ export const getUsersForSidebar = async (req, res) => {
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ success: false, error: "No active users found" });
+      return res
+        .status(404)
+        .json({ success: false, error: "No active users found" });
     }
-      
+
     //checking previous connected if yes show also detail
     const userChatsExists = await chat_messages.execute(
       "SELECT * FROM chat_messages WHERE sender_id = ? OR receiver_id = ?",
@@ -394,19 +418,20 @@ export const getUsersForSidebar = async (req, res) => {
 
     // Map user IDs to their chat details
     const userChatMap = new Map();
-    userChatsExists.forEach(chat => {
-      const otherUserId = chat.sender_id === id ? chat.receiver_id : chat.sender_id;
+    userChatsExists.forEach((chat) => {
+      const otherUserId =
+        chat.sender_id === id ? chat.receiver_id : chat.sender_id;
       if (!userChatMap.has(otherUserId)) {
         userChatMap.set(otherUserId, []);
       }
       userChatMap.get(otherUserId).push(chat);
     });
 
-      // Build online user list (based on sockets)
+    // Build online user list (based on sockets)
     const onlineUserIds = new Set(Object.keys(userSocketMap)); // Faster lookup
 
     // Combine user data with online status
-    const userList = rows.map(user => ({
+    const userList = rows.map((user) => ({
       ...user,
       isOnline: onlineUserIds.has(user.id.toString()), // true/false
     }));
@@ -416,25 +441,92 @@ export const getUsersForSidebar = async (req, res) => {
       success: true,
       message: "Active users retrieved successfully",
       data: userList,
-
     });
-
   } catch (error) {
     console.error("Error showing list of contacts:", error);
-    return res.status(500).json({ success: false, error: "Failed to retrieve contacts" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to retrieve contacts" });
   }
 };
 
+// export const shareAndCheckcontact = async (req, res) => {
+//   try {
+//     const { io } = req.app;
+//     const { phone_number } = req.body;
+
+//     if (!phone_number) {
+//       return res.status(400).json({ success: false, error: "Phone number is required" });
+//     }
+
+//     // Check if phone number exists
+//     const [rows] = await users.execute(
+//       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
+//       [phone_number]
+//     );
+
+//     // Case 1: User not found → create share link
+//     if (rows.length === 0) {
+//       // Create a unique token for invitation
+//       const token = crypto.randomBytes(16).toString("hex");
+
+//       // You can create an invitation entry in DB (optional)-not mandatory
+//       await user_invite_links.execute(
+//         "INSERT INTO user_invite_links (user_id, phone_number, token) VALUES (?, ?, ?)",
+//         [req.user.id, phone_number, token]
+//       );
+
+//       // Generate shareable link (adjust base URL according to your frontend domain)
+//       const shareLink = `${process.env.APP_BASE_URL}/invite/${token}`;
+
+//       return res.status(200).json({
+//         success: true,
+//         message: "User not found. Share this link to invite the contact.",
+//         share_link: shareLink,
+//       });
+//     }
+
+//     // Case 2: User found → send chat message
+//     const foundUser = rows[0];
+//     const chatMessage = {
+//       sender_id: req.user.id,
+//       receiver_id: foundUser.id,
+//       message: "You have a new contact!",
+//     };
+
+//     await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
+
+//     // Get receiver socket id
+//     const receiverSocketId = getReceiverSocketId(foundUser.phone_number);
+//     if (receiverSocketId) {
+//       io.to(receiverSocketId).emit("new_contact", {
+//         fromUserId: req.user.id, // sender
+//         contact: foundUser,      // receiver contact details
+//       });
+//     }
+
+//     return res.json({
+//       success: true,
+//       message: "Contact shared successfully",
+//       contact: foundUser,
+//     });
+
+//   } catch (error) {
+//     console.error("Error in shareAndCheckContact:", error);
+//     return res.status(500).json({ success: false, error: "Failed to share and check contact" });
+//   }
+// };
 
 export const shareAndCheckcontact = async (req, res) => {
   try {
+     //soket io
     const { io } = req.app;
     const { phone_number } = req.body;
 
     if (!phone_number) {
       return res.status(400).json({ success: false, error: "Phone number is required" });
     }
-
+ 
     // Check if phone number exists
     const [rows] = await users.execute(
       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
@@ -442,27 +534,12 @@ export const shareAndCheckcontact = async (req, res) => {
     );
 
     // Case 1: User not found → create share link
-    if (rows.length === 0) {
-      // Create a unique token for invitation
-      const token = crypto.randomBytes(16).toString("hex");
-
-      // You can create an invitation entry in DB (optional)-not mandatory
-      await user_invite_links.execute(
-        "INSERT INTO user_invite_links (user_id, phone_number, token) VALUES (?, ?, ?)",
-        [req.user.id, phone_number, token]
-      );
-
-      // Generate shareable link (adjust base URL according to your frontend domain)
-      const shareLink = `${process.env.APP_BASE_URL}/invite/${token}`;
-
-      return res.status(200).json({
-        success: true,
-        message: "User not found. Share this link to invite the contact.",
-        share_link: shareLink,
-      });
+    if( rows.length === 0) {
+      res.status(404).json({ success: false, error: "User Not registered with us" });
+      return;
     }
 
-    // Case 2: User found → send chat message
+   
     const foundUser = rows[0];
     const chatMessage = {
       sender_id: req.user.id,
@@ -481,14 +558,14 @@ export const shareAndCheckcontact = async (req, res) => {
       });
     }
 
-    return res.json({
+    res.status(200).json({
       success: true,
-      message: "Contact shared successfully",
-      contact: foundUser,
+      message: "User found",
+      contact: rows[0],
     });
 
-  } catch (error) {
-    console.error("Error in shareAndCheckContact:", error);
-    return res.status(500).json({ success: false, error: "Failed to share and check contact" });
+    } catch (err) {
+    console.error("Error in shareAndCheckContacts:", err);
+    res.status(500).json({ success: false, error: "Failed to check contacts" });
   }
 };

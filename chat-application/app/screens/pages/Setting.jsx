@@ -20,6 +20,7 @@ import axios from "axios";
 const Setting = () => {
   const router = useRouter();
   const user = useSelector((state) => state.auth.user);
+  const token = useSelector((state) => state.auth.token);
   const [darkMode, setDarkMode] = useState(false);
   const [notifications, setNotifications] = useState(true);
   const [email, setEmail] = useState("");
@@ -40,7 +41,9 @@ const Setting = () => {
       const response = await axios.post(
         `${process.env.EXPO_API_URL}/logout`,
         {
-          withCredentials: true,
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
         }
       );
       
@@ -59,15 +62,46 @@ const Setting = () => {
 };
 
 
-  const saveEmail = () => {
-    const isValid = /\S+@\S+\.\S+/.test(email);
-    if (!isValid) {
-      Alert.alert("Invalid Email", "Please enter a valid email address.");
-      return;
+const saveEmail = async () => {
+  // Trim to avoid accidental spaces
+  const trimmedEmail = email.trim();
+
+  // Better validation
+  const isValid = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmedEmail);
+  if (!isValid) {
+    Alert.alert("Invalid Email", "Please enter a valid email address.");
+    return;
+  }
+
+  try {
+    const res = await axios.patch(
+      `${process.env.EXPO_API_URL}/save/email`,
+      { email: trimmedEmail },
+      {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      }
+    );
+
+    if (res.data?.success) {
+      Alert.alert("Email Saved", "Your email has been saved successfully.");
+      setEmailSaved(true);
+    } else {
+      Alert.alert(
+        "Email Save Failed",
+        res.data?.message || "Please try again."
+      );
     }
-    setEmailSaved(true);
-    Alert.alert("Email Saved", `Your backup email is set to ${email}`);
-  };
+  } catch (error) {
+    console.error("Save email error:", error);
+
+    const message =
+      error.response?.data?.message || "Something went wrong. Please try again.";
+
+    Alert.alert("Error", message);
+  }
+};
 
   return (
     <SafeAreaView
@@ -243,14 +277,17 @@ const Setting = () => {
                 autoCapitalize="none"
               />
 
-              <TouchableOpacity
-                onPress={saveEmail}
-                className="bg-blue-500 py-3 my-0 mx-auto w-52 rounded-full items-center shadow"
-              >
-                <Text className="text-white font-semibold text-base">
-                  {emailSaved ? "Saved ✔" : "Save Email"}
-                </Text>
-              </TouchableOpacity>
+             <TouchableOpacity
+  onPress={saveEmail}
+  disabled={emailSaved} // disable after success
+  className={`py-3 my-0 mx-auto w-52 rounded-full items-center shadow ${
+    emailSaved ? "bg-green-500" : "bg-blue-500"
+  }`}
+>
+  <Text className="text-white font-semibold text-base">
+    {emailSaved ? "Saved ✔" : "Save Email"}
+  </Text>
+</TouchableOpacity>
             </View>
           </View>
         </View>

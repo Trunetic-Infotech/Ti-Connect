@@ -20,7 +20,7 @@ import { setOnlineUsers } from "../redux/features/auth";
 const Chats = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("All");
-  const [chatList, setChatList] = useState(initialChats);
+  // const [chatList, setChatList] = useState(initialChats);
   const navigation = useNavigation();
   const router = useRouter();
   const [chatsList, setChatsList] = useState([]);
@@ -68,7 +68,7 @@ const Chats = () => {
     fetchChatList();
   }, []);
 
-  // Delete chat on long press
+  // // Delete phone b on long press
   // const handleDelete = (id, name) => {
   //   Alert.alert(
   //     "Delete Chat",
@@ -80,7 +80,7 @@ const Chats = () => {
   //         style: "destructive",
   //         onPress: () =>
   //           setChatList((prev) => prev.filter((chat) => chat.id !== id)),
-  //       },
+  //       },initialChats
   //     ]
   //   );
   // };

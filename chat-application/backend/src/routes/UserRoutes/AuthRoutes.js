@@ -6,6 +6,7 @@ import {
   logout,
   otpSend,
   otpVerify,
+  setBackupEmailController,
   setNameController,
   shareAndCheckcontact,
   uploadImageController,
@@ -33,10 +34,11 @@ router.get(
 
 
 router.get("/users/profile", isAuthenticated, getUserProfileController);
-router.get("/get/user/contact", isAuthenticated, shareAndCheckcontact);
+router.post("/get/user/contact", isAuthenticated, shareAndCheckcontact);
+router.patch("/save/email", isAuthenticated, setBackupEmailController);
 
-router.get("/list/online",isAuthenticated,getUsersForSidebar);
+router.get("/list/online", isAuthenticated, getUsersForSidebar);
 
-router.post("/logout",logout);
+router.post("/logout", logout);
 
 export default router;

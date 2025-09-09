@@ -29,20 +29,21 @@ const SendMessageBar = ({ messageText, setMessageText, onSend }) => {
  const dispatch = useDispatch();
 
   const handleSendPress =async () => {
-        const response = await axios.post(`${process.env.API_URL}/messages/${user.sender_id}`, {
+        const response = await axios.post(`${process.env.API_URL}/messages/${user.sender_id}`,  {
           headers: {
             Authorization: `Bearer ${token}`,
           },
           data: {
-            text: messageText,
-            type: "text",
+            receiver_id: user.receiver_id,
+            text: message,
+            message_type: "text",
           },
         });
 
         console.log(response);
         if (response.data?.success) {
           setMessageText("");
-          onSend({ type: "text", text: messageText });
+          onSend({ message_type: "text", text: message });
           dispatch(setTyping({ userId: user.id, isTyping: false }));
         }
         

@@ -7,7 +7,6 @@ import { useDispatch } from "react-redux";
 import * as SecureStore from "expo-secure-store";
 import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen";
 import { View, Text, ActivityIndicator } from "react-native";
-import { useSelector } from "react-redux";
 import { setUser } from "./redux/features/auth";
 
 
@@ -52,8 +51,6 @@ export default function Index() {
  
   useEffect(() => {
     UserProfile();
-    console.log("UserProfile function called",UserProfile());
-
   }, []);
 
   if (loading) {
