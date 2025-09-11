@@ -340,7 +340,7 @@ router.push({
     return (
       <View className="flex-1 items-center justify-center">
         <Text>Permission denied. Please allow contacts access.</Text>
-        <Button title="Try Again" onPress={askPermissionAndLoadContacts} />
+        <Button title="Try Again!" onPress={askPermissionAndLoadContacts} />
       </View>
     );
   }
