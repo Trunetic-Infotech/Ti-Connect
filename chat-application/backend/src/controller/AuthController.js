@@ -544,16 +544,7 @@ console.log(cleanedNumber);
       res.status(404).json({ success: false, error: "User Not registered with us" });
       return;
     }
-
-   
-    const foundUser = rows[0];
-    console.log(foundUser);
     
-    const chatMessage = {
-      sender_id: req.user.id,
-      receiver_id: foundUser.id,
-      message: "You have a new contact!",
-    };
 
     
 

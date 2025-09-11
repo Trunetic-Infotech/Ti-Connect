@@ -3,8 +3,8 @@ import cloudinary from "../../utils/images/Cloudinary.js";
 import { getReceiverSocketId, io } from "../../utils/socket/socket.js";
 
 export const SendMessage = async (req, res) => {
-  try { 
-    const { sender_id } = req.user.id;
+  try {
+    const sender_id = req.user.id; // ✅ fix destructuring
     const { receiver_id, message, message_type = "text" } = req.body;
 
     if (!sender_id || !receiver_id || !message) {
@@ -14,28 +14,39 @@ export const SendMessage = async (req, res) => {
     }
 
     // Save message to database
-    await chat_messages.execute(
-      "INSERT INTO messages (sender_id, receiver_id, message) VALUES (?, ?, ?)",
-      [sender_id, receiver_id, message]
+    const [result] = await chat_messages.execute(
+      "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type) VALUES (?, ?, ?, ?)",
+      [sender_id, receiver_id, message, message_type]
     );
 
     const newMessage = {
       id: result.insertId,
       sender_id,
+      receiver_id,
       message,
       message_type,
       created_at: new Date(),
     };
 
     // Send real-time update via Socket.IO
-  const receiverSocketId = getReceiverSocketId(receiver_id);
+    const receiverSocketId = getReceiverSocketId(receiver_id);
     if (receiverSocketId) {
-      io.to(receiverSocketId).emit("newMessage", newMessage);
+      io.to(receiverSocketId).emit("receive_message", newMessage); // ✅ consistent event name
     }
 
-    res.json({ success: true, message: "Message sent successfully", newMessage });
+    // Optionally also send back to sender to confirm delivery
+    const senderSocketId = getReceiverSocketId(sender_id);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("receive_message", newMessage);
+    }
+
+    res.json({
+      success: true,
+      message: "Message sent successfully",
+      newMessage,
+    });
   } catch (error) {
-    console.log("error is Sending message", error);
+    console.log("❌ Error sending message:", error);
     res.status(500).json({ error: "Failed to send message" });
   }
 };
@@ -43,7 +54,7 @@ export const SendMessage = async (req, res) => {
 //get messages
 export const GetMessages = async (req, res) => {
   try {
-    const myId = req.user.id
+    const myId = req.user.id;
     const { receiver_id } = req.body;
 
     if (!receiver_id) {
@@ -51,7 +62,7 @@ export const GetMessages = async (req, res) => {
     }
 
     const [rows] = await chat_messages.execute(
-      `SELECT * FROM messages 
+      `SELECT * FROM chat_messages 
    WHERE (sender_id = ? AND receiver_id = ?) 
       OR (sender_id = ? AND receiver_id = ?) 
    ORDER BY created_at ASC`,
@@ -68,7 +79,6 @@ export const GetMessages = async (req, res) => {
   }
 };
 
-
 //update message
 export const UpdateMessage = async (req, res) => {
   try {
@@ -83,7 +93,7 @@ export const UpdateMessage = async (req, res) => {
 
     // Get receiver_id before updating (so we know who to notify)
     const [existingMessageRows] = await chat_messages.execute(
-      "SELECT receiver_id, sender_id FROM messages WHERE id = ?",
+      "SELECT receiver_id, sender_id FROM chat_messages WHERE id = ?",
       [id]
     );
 
@@ -95,7 +105,7 @@ export const UpdateMessage = async (req, res) => {
 
     // Update the message in DB
     await chat_messages.execute(
-      "UPDATE messages SET message = ?, message_type = ?, media_url = ? WHERE id = ?",
+      "UPDATE chat_messages SET message = ?, message_type = ?, media_url = ? WHERE id = ?",
       [message, message_type, media_url, id]
     );
 
@@ -125,11 +135,11 @@ export const UpdateMessage = async (req, res) => {
   }
 };
 
-//delete message messages and media file also 
+//delete message messages and media file also
 export const DeleteMessage = async (req, res) => {
   try {
-    const { messageId } = req.body;  // <-- message ID from request body
-    const userId = req.user.id;      // <-- logged-in user's ID
+    const { messageId } = req.body; // <-- message ID from request body
+    const userId = req.user.id; // <-- logged-in user's ID
 
     if (!messageId) {
       return res.status(400).json({ error: "Message ID is required" });
@@ -137,21 +147,22 @@ export const DeleteMessage = async (req, res) => {
 
     // 1. Fetch message first (before deleting)
     const [rows] = await chat_messages.execute(
-      "SELECT media_url, receiver_id FROM messages WHERE id = ? AND sender_id = ?",
+      "SELECT media_url, receiver_id FROM chat_messages WHERE id = ? AND sender_id = ?",
       [messageId, userId]
     );
 
     if (rows.length === 0) {
-      return res.status(404).json({ error: "Message not found or not owned by user" });
+      return res
+        .status(404)
+        .json({ error: "Message not found or not owned by user" });
     }
 
     const { media_url, receiver_id } = rows[0];
 
     // 2. Delete the message from DB
-    await chat_messages.execute(
-      "DELETE FROM messages WHERE id = ?",
-      [messageId]
-    );
+    await chat_messages.execute("DELETE FROM chat_messages WHERE id = ?", [
+      messageId,
+    ]);
 
     // 3. Delete media from Cloudinary if exists
     if (media_url) {
@@ -169,34 +180,34 @@ export const DeleteMessage = async (req, res) => {
     }
 
     return res.json({ success: true, message: "Message deleted successfully" });
-
   } catch (error) {
     console.error("Error in DeleteMessage:", error);
     return res.status(500).json({ error: "Failed to delete message" });
   }
 };
 
-
-//upload video files 
+//upload video files
 export const UploadMedia = async (req, res) => {
   try {
     const { sender_id } = req.params;
     const { media_url, message_type = "file", receiver_id } = req.body;
 
     if (!media_url || !receiver_id || !sender_id) {
-      return res.status(400).json({ error: "Sender, receiver, and media are required" });
+      return res
+        .status(400)
+        .json({ error: "Sender, receiver, and media are required" });
     }
 
     // Upload the media file to Cloudinary
     const uploadResponse = await cloudinary.uploader.upload(media_url, {
       resource_type: "auto", // auto-detect image/video/raw
-      folder: "ChatMedia",   // optional: group all chat uploads
+      folder: "ChatMedia", // optional: group all chat uploads
       public_id: `${Date.now()}-${sender_id}`, // optional: readable unique ID
     });
 
     // Save message to database (optional but usually needed)
     const [result] = await chat_messages.execute(
-      "INSERT INTO messages (sender_id, receiver_id, message, media_url, message_type) VALUES (?, ?, ?, ?, ?)",
+      "INSERT INTO chat_messages (sender_id, receiver_id, message, media_url, message_type) VALUES (?, ?, ?, ?, ?)",
       [sender_id, receiver_id, null, uploadResponse.secure_url, message_type]
     );
 
@@ -226,5 +237,3 @@ export const UploadMedia = async (req, res) => {
     res.status(500).json({ error: "Failed to upload media" });
   }
 };
-
-
