@@ -386,17 +386,6 @@ router.push({
         </View>
       )}
 
-      {/* {showSearch && (
-//         <View className="px-4 mt-3">
-//           <TextInput
-//             value={searchText}
-//             onChangeText={setSearchText}
-//             placeholder="Search by name or number"
-//             className="bg-gray-100 px-4 py-2 rounded-xl text-gray-800"
-//             placeholderTextColor="#9ca3af"
-//           />
-//         </View>
-//       )} */}
 
       {/* Contact List */}
       <ScrollView className="mt-4 px-4">
