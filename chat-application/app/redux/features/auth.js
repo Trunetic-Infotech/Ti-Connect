@@ -39,22 +39,29 @@ const authSlice = createSlice({
       state.user = action.payload;
       state.isLoggedIn = true;
     },
-    clearAuth: (state) => {
-      state.token = null;
-      state.user = null;
-    },
     logout: (state) => {
       state.user = null;
+      state.token =null;
       state.isLoggedIn = false;
       state.onlineUsers = [];
       state.typingStatus = {};
     },
-    setOnlineUsers: (state, action) => {
-      state.onlineUsers = action.payload;
+       setOnlineUsers: (state, action) => {
+      const { userId, status } = action.payload;
+      if (status === "active") {
+        if (!state.onlineUsers.includes(userId)) {
+          state.onlineUsers.push(userId);
+        }
+      } else {
+        state.onlineUsers = state.onlineUsers.filter((id) => id !== userId);
+      }
     },
     setTyping: (state, action) => {
       const { userId, isTyping } = action.payload;
-      state.typingStatus[userId] = isTyping;
+      state.typingUsers[userId] = isTyping;
+    },
+    clearTyping: (state) => {
+      state.typingUsers = {};
     },
   },
 });
@@ -62,7 +69,7 @@ const authSlice = createSlice({
 export const {
   setToken,
   setUser,
-  clearAuth,
+  clearTyping,
   logout,
   setOnlineUsers,
   setTyping,

@@ -2,18 +2,15 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
-  Image,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
   Animated,
   Alert,
-  TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 
 import dp from "../../assets/images/dp.jpg";
 
@@ -21,58 +18,78 @@ import SendMessageBar from "../screens/components/SenderMessage/SendMessageBar";
 import BlockedOverlay from "../screens/components/BlockContact/BlockedOverlay";
 import SelectedMessagesActionBar from "../screens/components/SelectedMessagesActionBar/SelectedMessagesActionBar";
 import MessagesList from "../screens/components/MessagesList/MessagesList";
-
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
-import { useLocalSearchParams } from "expo-router"; 
+import * as SecureStore from "expo-secure-store";
 
-const initialMessages = [
-  {
-    id: 1,
-    sender: "Priya",
-    text: "Hi Aman! Working on the design update.",
-    avatar: dp,
-  },
-  {
-    id: 2,
-    sender: "You",
-    text: "Great! Let me know if any help is needed 💻",
-    avatar: dp,
-  },
-];
+import axios from "axios";
 
 const Message = () => {
-  const [messages, setMessages] = useState([]);
-  const [selectedMessages, setSelectedMessages] = useState([]);
-  const [editingMessageId, setEditingMessageId] = useState(null);
-  const [messageText, setMessageText] = useState("");
-  const [isBlocked, setIsBlocked] = useState(false);
-  const [hasLeftGroup, setHasLeftGroup] = useState(false);
-  const [wallpaperUri, setWallpaperUri] = useState(null);
-  const params = useLocalSearchParams();
-  const user = JSON.parse(params.user);
+  // ------------------ States ------------------
+  const [messages, setMessages] = useState([]); // Chat messages
+  const [selectedMessages, setSelectedMessages] = useState([]); // Selected messages for edit/delete
+  const [editingMessageId, setEditingMessageId] = useState(null); // Message being edited
+  const [messageText, setMessageText] = useState(""); // Current input text
+  const [isBlocked, setIsBlocked] = useState(false); // Blocked status
+  const [wallpaperUri, setWallpaperUri] = useState(null); // Chat wallpaper
 
-  console.log("user",user);
-  
+  // ------------------ Navigation & Animations ------------------
+  const params = useLocalSearchParams();
+  //  console.log("RAW DATA",params);
+   
+  // const user = JSON.parse(params.user); // Passed user object
+  // Safe parsing to avoid "Unexpected character: u"
+let user = params.user;
+
+try {
+  if (typeof user === "string") {
+    user = JSON.parse(user);
+  }
+} catch (e) {
+  console.warn("Failed to parse user param:", e);
+}
+
+// console.log("conatct Data",user);
 
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
-  
 
-  
-  useEffect(() => {
-    setTimeout(() => {
-      setMessages(initialMessages);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }, 300);
-  }, []);
+  //   // ------------------ Fetch messages ------------------
+  const handleGetMessage = async () => {
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) {
+        Alert.alert("Error", "No send Id token found");
+        return;
+      }
 
+      const response = await axios.get(
+         `${process.env.EXPO_API_URL}/get/messages`,
+       {
+        params: { receiver_id: user.id }, // ✅ query params go here
+        headers: { Authorization: `Bearer ${token}` }
+      }
+      );
+      // console.log("dataMessage",response.data);
+      
+      if (response.data.success) {
+const messages = response.data.messages || [];
+      setMessages(messages);
+} else {
+        Alert.alert("Error", response.data.message || "Failed to fetch messages");
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      Alert.alert("Error", "Something went wrong while fetching messages");
+    }
+  };
+
+
+
+
+  // ------------------ Load Wallpaper from AsyncStorage ------------------
   useEffect(() => {
     (async () => {
       const uri = await AsyncStorage.getItem("chat_wallpaper");
@@ -80,6 +97,7 @@ const Message = () => {
     })();
   }, []);
 
+  // ------------------ Message Selection ------------------
   const toggleMessageSelection = (id) => {
     setSelectedMessages((prev) =>
       prev.includes(id) ? prev.filter((msgId) => msgId !== id) : [...prev, id]
@@ -90,6 +108,7 @@ const Message = () => {
     toggleMessageSelection(item.id);
   };
 
+  // ------------------ Delete Messages ------------------
   const deleteSelectedMessages = () => {
     Alert.alert(
       "Delete Messages",
@@ -112,69 +131,33 @@ const Message = () => {
     );
   };
 
+  // ------------------ Cancel Selection ------------------
   const cancelSelection = () => {
     setSelectedMessages([]);
     setEditingMessageId(null);
     setMessageText("");
   };
 
-  const editSelectedMessage = () => {
-    if (selectedMessages.length === 1) {
-      const msgToEdit = messages.find((msg) => msg.id === selectedMessages[0]);
-      if (msgToEdit) {
-        setEditingMessageId(msgToEdit.id);
-        setMessageText(msgToEdit.text);
-        setSelectedMessages([]);
-      }
+  // ------------------ Edit Message /send Message ------------------
+  // ✅ Send or Edit message
+ const editSelectedMessage = () => {
+  if (selectedMessages.length === 1) {
+    const msgToEdit = messages.find((msg) => msg.id === selectedMessages[0]);
+    if (msgToEdit) {
+      setEditingMessageId(msgToEdit.id);
+      setMessageText(msgToEdit.text);
     }
-  };
+  }
+};
 
-  const handleSend = (message) => {
-    if (editingMessageId && message.type === "text") {
-      // Editing a text message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === editingMessageId ? { ...msg, text: message.text } : msg
-        )
-      );
-      setEditingMessageId(null);
-      setMessageText("");
-    } else {
-      // New message (text or image)
-      const newMsg = {
-        id: Date.now(),
-        sender: "You",
-        avatar: dp,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        ...message, // Spread type, text, uri
-      };
-      setMessages((prev) => [newMsg, ...prev]);
-
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-
-      setTimeout(() => {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      }, 100);
-
-      if (message.type === "text") {
-        setMessageText("");
-      }
-    }
-  };
-
+  // ------------------ Clear Chat ------------------
   const clearChat = () => {
     setMessages([]);
     setSelectedMessages([]);
     setEditingMessageId(null);
   };
 
+  // ------------------ Change Wallpaper ------------------
   const handleWallpaperChange = async (uri) => {
     if (uri) {
       setWallpaperUri(uri);
@@ -185,6 +168,24 @@ const Message = () => {
     }
   };
 
+  useEffect(() => {
+  let interval;
+
+  const fetchMessages = async () => {
+    await handleGetMessage();
+  };
+
+  // First fetch
+  fetchMessages();
+
+  // Poll every 5 seconds
+  interval = setInterval(fetchMessages, 5000);
+
+  // Cleanup when component unmounts
+  return () => clearInterval(interval);
+}, []);
+
+
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -193,54 +194,16 @@ const Message = () => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
-          {/* <GroupChatHeader
-            onWallpaperChange={handleWallpaperChange}
-            onBlock={() => setIsBlocked(true)}
-            onClearChat={clearChat}
-            onLeaveGroup={() => {
-              Alert.alert(
-                "Leave Group",
-                "Are you sure you want to leave this group? You won't be able to send or receive messages after leaving.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Leave",
-                    style: "destructive",
-                    onPress: () => {
-                      setHasLeftGroup(true);
-                      setSelectedMessages([]);
-                      setEditingMessageId(null);
-                      setMessageText("");
-                    },
-                  },
-                ]
-              );
-            }}
-          /> */}
-
+          {/* 🔹 Chat Header */}
           <OneToOneChatHeader
-            // user={currentChatUser}
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
             user={user}
           />
 
-          {hasLeftGroup ? (
-            <View className="flex-1 justify-center items-center px-4">
-              <Text className="text-center text-gray-600 text-lg">
-                You have left this group. You cannot send or receive messages.
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Back to Groups
-                </Text>
-              </TouchableOpacity>
-            </View>
-          ) : isBlocked ? (
+          {/* 🔹 Blocked Contact Overlay */}
+          {isBlocked ? (
             <BlockedOverlay
               onUnblock={() => setIsBlocked(false)}
               onDelete={() => {
@@ -259,11 +222,12 @@ const Message = () => {
                       },
                     },
                   ]
-                );
+                );  
               }}
             />
           ) : (
             <>
+              {/* 🔹 Action bar for selected messages */}
               {selectedMessages.length > 0 && (
                 <SelectedMessagesActionBar
                   selectedCount={selectedMessages.length}
@@ -273,8 +237,10 @@ const Message = () => {
                 />
               )}
 
+              {/* 🔹 Messages List */}
               <MessagesList
                 messages={messages}
+                user={user}
                 onLongPress={handleLongPress}
                 selectedMessages={selectedMessages}
                 fadeAnim={fadeAnim}
@@ -282,12 +248,15 @@ const Message = () => {
                 wallpaperUri={wallpaperUri}
               />
 
+              {/* 🔹 Message Input Bar */}
               <SendMessageBar
                 messageText={messageText}
                 setMessageText={setMessageText}
                 editingMessageId={editingMessageId}
                 cancelEditing={cancelSelection}
-                onSend={handleSend}
+                // onSend={handleSend} // ✅ Fixed function reference
+                user={user}
+
               />
             </>
           )}
@@ -298,3 +267,153 @@ const Message = () => {
 };
 
 export default Message;
+// *****************************************************************************************************************
+
+
+// import React, { useState, useRef, useEffect } from "react";
+// import {
+//   View,
+//   Text,
+//   KeyboardAvoidingView,
+//   Platform,
+//   TouchableWithoutFeedback,
+//   Keyboard,
+//   Animated,
+//   Alert,
+// } from "react-native";
+// import { SafeAreaView } from "react-native-safe-area-context";
+// import { useRouter, useLocalSearchParams } from "expo-router";
+
+// import dp from "../../assets/images/dp.jpg";
+
+// import SendMessageBar from "../screens/components/SenderMessage/SendMessageBar";
+// import BlockedOverlay from "../screens/components/BlockContact/BlockedOverlay";
+// import SelectedMessagesActionBar from "../screens/components/SelectedMessagesActionBar/SelectedMessagesActionBar";
+// import MessagesList from "../screens/components/MessagesList/MessagesList";
+// import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
+// import * as SecureStore from "expo-secure-store";
+
+// import axios from "axios";
+
+// const Message = () => {
+//   // ------------------ States ------------------
+//   const [messages, setMessages] = useState([]);
+//   const [selectedMessages, setSelectedMessages] = useState([]);
+//   const [editingMessageId, setEditingMessageId] = useState(null);
+//   const [messageText, setMessageText] = useState("");
+//   const [isBlocked, setIsBlocked] = useState(false);
+//   const [wallpaperUri, setWallpaperUri] = useState(null);
+
+//   // ------------------ Navigation & Animations ------------------
+//  const params = useLocalSearchParams();
+//  const user = JSON.parse(params.user); // Passed user object // ✅ No JSON.parse crash
+//   const router = useRouter();
+//   const fadeAnim = useRef(new Animated.Value(0)).current;
+//   const flatListRef = useRef(null);
+
+//   // ------------------ Fetch messages ------------------
+//   const handleGetMessage = async () => {
+//     try {
+//       const token = await SecureStore.getItemAsync("authToken");
+//       if (!token) {
+//         Alert.alert("Error", "No auth token found");
+//         return;
+//       }
+
+//       const response = await axios.post(
+//          `${process.env.EXPO_API_URL}/get/messages`,
+//         { receiver_id: id }, // ✅ use id directly
+//         { headers: { Authorization: `Bearer ${token}` } }
+//       );
+
+//       if (response.data.success) {
+//         setMessages(response.data.data);
+//       } else {
+//         Alert.alert("Error", response.data.message || "Failed to fetch messages");
+//       }
+//     } catch (error) {
+//       console.error("Error fetching messages:", error);
+//       Alert.alert("Error", "Something went wrong while fetching messages");
+//     }
+//   };
+
+//   useEffect(() => {
+//     handleGetMessage();
+//   }, []);
+
+//   // ------------------ Helpers ------------------
+//   const cancelSelection = () => {
+//     setSelectedMessages([]);
+//     setEditingMessageId(null);
+//     setMessageText("");
+//   };
+
+//   const handleSend = async (text) => {
+//     try {
+//       const token = await SecureStore.getItemAsync("authToken");
+//       if (!token) {
+//         Alert.alert("Error", "No auth token found");
+//         return;
+//       }
+
+//       const response = await axios.post(
+//         "http://192.168.29.180:8000/api/sendmessage",
+//         { receiver_id: id, message: text },
+//         { headers: { Authorization: `Bearer ${token}` } }
+//       );
+
+//       if (response.data.success) {
+//         setMessages((prev) => [...prev, response.data.data]);
+//         setMessageText("");
+//       } else {
+//         Alert.alert("Error", response.data.message || "Failed to send message");
+//       }
+//     } catch (error) {
+//       console.error("Error sending message:", error);
+//       Alert.alert("Error", "Something went wrong while sending message");
+//     }
+//   };
+
+//   // ------------------ UI ------------------
+//   return (
+//     <SafeAreaView style={{ flex: 1, backgroundColor: "#fff" }}>
+//       {/* Header */}
+//       <OneToOneChatHeader user={user} onBack={() => router.back()} />
+
+//       {/* Messages list */}
+//       <MessagesList
+//         messages={messages}
+//         selectedMessages={selectedMessages}
+//         setSelectedMessages={setSelectedMessages}
+//         flatListRef={flatListRef}
+//         wallpaperUri={wallpaperUri}
+//       />
+
+//       {/* Selected messages actions */}
+//       {selectedMessages.length > 0 && (
+//         <SelectedMessagesActionBar
+//           selectedMessages={selectedMessages}
+//           cancelSelection={cancelSelection}
+//         />
+//       )}
+
+//       {/* Block overlay */}
+//       {isBlocked && <BlockedOverlay />}
+
+//       {/* Message input */}
+//       {!isBlocked && selectedMessages.length === 0 && (
+//         <SendMessageBar
+//           messageText={messageText}
+//           setMessageText={setMessageText}
+//           editingMessageId={editingMessageId}
+//           cancelEditing={cancelSelection}
+//           onSend={handleSend}
+//         />
+//       )}
+//     </SafeAreaView>
+//   );
+// };
+
+// export default Message;
+
+

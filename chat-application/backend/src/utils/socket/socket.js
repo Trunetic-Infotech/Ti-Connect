@@ -19,6 +19,9 @@ const io = new Server(server, {
 // Map to keep track of online users: { userId/phoneNumber: socketId }
 const userSocketMap = {};
 
+// ✅ make it available everywhere
+app.locals.userSocketMap = userSocketMap;
+
 // Helper function to get a user's socket ID
 export function getReceiverSocketId(userId) {
   return userSocketMap[userId];
@@ -40,14 +43,15 @@ io.on("connection", (socket) => {
     // Store mapping: user phone → socket id
     userSocketMap[phone_number] = socket.id;
 
-    // Update DB status
-    await users.execute(
-      "UPDATE users SET status = 'Online', last_seen_at = NULL WHERE phone_number = ?",
-      [phone_number]
-    );
+    
+    // ✅ Update DB: mark Online & update timestamp
+  await users.execute(
+    "UPDATE users SET status = 'Online', last_seen_at = NOW() WHERE phone_number = ?",
+    [phone_number]
+  );
 
     // Broadcast to everyone that this user is now online
-    io.emit("status_update", { userId: phone_number, status: "Online" });
+    io.emit("status_update", { userId: phone_number, status: "active" });
   });
 
   /**
@@ -182,4 +186,4 @@ io.on("connection", (socket) => {
   });
 });
 
-export { io, app, server };
+export { io, app, server, userSocketMap };

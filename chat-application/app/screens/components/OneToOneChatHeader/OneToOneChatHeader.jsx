@@ -14,10 +14,9 @@ import { useRouter } from "expo-router";
 import * as Audio from "expo-av";
 import * as Camera from "expo-camera";
 import WallPaper from "../ChangeWallPaper/WallPaper";
-import dp from "../../../../assets/images/dp.jpg";
 
 const OneToOneChatHeader = ({
-  user ,
+  user,
   onWallpaperChange,
   onBlock,
   onClearChat,
@@ -65,7 +64,7 @@ const OneToOneChatHeader = ({
         end={{ x: 1, y: 1 }}
         className="rounded-b-[20px]"
       >
-        <BlurView intensity={60} tint="light" className="px-4 py-2.5">
+        <BlurView intensity={60} tint="light" className="px-4 py-3.5">
           <View className="flex-row items-center justify-between">
             {/* Left: Back + User Info */}
             <View className="flex-row items-center space-x-3 gap-2">
@@ -79,9 +78,14 @@ const OneToOneChatHeader = ({
 
               <View className="flex-row items-center">
                 <Image
-                  source={user?.profile_picture || dp}
+                  source={
+                    user?.image
+                      ? { uri: user.image }
+                      : require("../../../../assets/images/userDp.png")
+                  }
                   className="w-10 h-10 rounded-full mr-3 border border-white/30"
                 />
+
                 <TouchableOpacity
                   onPress={() => router.push("/screens/pages/ProfileEdit")}
                 >
@@ -90,7 +94,11 @@ const OneToOneChatHeader = ({
                       {user?.name}
                     </Text>
                     <Text className="text-white/70 text-xs mt-0.5">
-                      {user?.status}
+                      {user?.status === "active"
+                        ? "Online"
+                        : user?.last_seen
+                          ? `Last seen: ${user.last_seen}`
+                          : ""}
                     </Text>
                   </View>
                 </TouchableOpacity>

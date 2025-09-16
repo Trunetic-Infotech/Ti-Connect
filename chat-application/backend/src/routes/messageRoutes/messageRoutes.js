@@ -7,8 +7,8 @@ import upload from "../../services/imagesUploader/uploader.js";
 
 const router = express.Router();
 
-router.post("/messages/:sender_id", isAuthenticated ,SendMessage);
-router.get("/messages/:myId",isAuthenticated, GetMessages);
+router.post("/messages", isAuthenticated ,SendMessage);
+router.get("/get/messages",isAuthenticated, GetMessages);
 router.put("/messages/:id",isAuthenticated, UpdateMessage);
 router.delete("/messages/:id",isAuthenticated, DeleteMessage);
 router.post("/messages/upload/:sender_id",isAuthenticated,upload.single("media_url"), UploadMedia);

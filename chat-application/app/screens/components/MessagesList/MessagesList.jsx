@@ -1,189 +1,98 @@
-import React from "react";
-import {
-  View,
-  FlatList,
-  Animated,
-  Image,
-  TouchableOpacity,
-  Text,
-  Alert,
-} from "react-native";
-import { Feather } from "@expo/vector-icons";
-import * as FileSystem from "expo-file-system";
-import * as Sharing from "expo-sharing";
+import React, { useEffect } from "react";
+import { View, FlatList, Animated, Image, Text } from "react-native";
 import { Video } from "expo-av";
 import VoicePlayer from "../VoicePlayer/VoicePlayer";
 import ContactBubble from "../ContactBubble/ContactBubble";
+import { format } from "date-fns";
 
 const MessagesList = ({
+  user,
   messages,
-  onLongPress,
-  selectedMessages,
   fadeAnim,
   flatListRef,
   wallpaperUri,
 }) => {
-  const handleOpenDocument = async (uri, name) => {
+  console.log("🔹 user data:", user);
+  console.log("🔹 messages count:", messages?.length);
+  const formatTime = (timestamp) => {
     try {
-      let fileUri = uri;
-
-      if (uri.startsWith("http")) {
-        const downloadPath = `${FileSystem.cacheDirectory}${name || "document"}`;
-        const { uri: localUri } = await FileSystem.downloadAsync(
-          uri,
-          downloadPath
-        );
-        fileUri = localUri;
-      }
-
-      const fileInfo = await FileSystem.getInfoAsync(fileUri);
-      if (!fileInfo.exists) {
-        Alert.alert("File not found", "This file is no longer available.");
-        return;
-      }
-
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri);
-      } else {
-        Alert.alert("Not supported", "Your device cannot open this file.");
-      }
-    } catch (error) {
-      console.log("Error opening document:", error);
-      Alert.alert("Error", "Unable to open document.");
+      return format(new Date(timestamp), "hh:mm a");
+    } catch {
+      return "";
     }
   };
 
-  const renderMessage = ({ item }) => {
-    const isMe = item.sender === "You";
-    const isSelected = selectedMessages.includes(item.id);
+  // Auto scroll when messages update
+  useEffect(() => {
+    if (messages.length > 0 && flatListRef?.current) {
+      flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+    }
+  }, [messages]); // ✅ run whenever messages change
 
-    let bubbleBg = isMe ? "bg-indigo-700" : "bg-yellow-400";
-    if (item.type === "document") bubbleBg = "bg-gray-200";
+  const renderMessage = ({ item }) => {
+    const isMe = item.sender_id === user?.id;
+    const avatar = isMe ? item.receiver_image : item.sender_image;
+console.log("rendering item:", item.message, "| isMe:", isMe);
 
     return (
-      <Animated.View
-        style={{
-          opacity: fadeAnim,
-          transform: [
-            {
-              translateY: fadeAnim.interpolate({
-                inputRange: [0, 1],
-                outputRange: [20, 0],
-              }),
-            },
-          ],
-        }}
-      >
-        <TouchableOpacity
-          onLongPress={() => onLongPress(item)}
-          onPress={() => {
-            if (selectedMessages.length > 0) {
-              onLongPress(item);
-            } else if (item.type === "document") {
-              handleOpenDocument(item.uri, item.name);
-            }
-          }}
-          activeOpacity={0.8}
+      <Animated.View>
+        <View
           className={`max-w-[75%] my-2 flex-row ${
             isMe ? "self-end justify-end" : "self-start justify-start"
           }`}
         >
-          {!isMe && (
-            <Image source={item.avatar} className="w-8 h-8 rounded-full mr-2" />
-          )}
+          {/* Avatar placeholder for incoming */}
+          {!isMe ? (
+            avatar ? (
+              <Image
+                source={{ uri: avatar }}
+                className="w-8 h-8 rounded-full mr-2"
+              />
+            ) : (
+              <View className="w-8 h-8 mr-2" />
+            )
+          ) : null}
 
           {/* Bubble */}
           <View
-            className={`${
-              item.type !== "image" &&
-              item.type !== "video" &&
-              item.type !== "voice"
-                ? `py-2.5 px-3.5 rounded-[18px] shadow-md ${bubbleBg}`
-                : ""
-            } ${isMe && item.type === "text" ? "rounded-br-none" : ""} ${
-              !isMe && item.type === "text" ? "rounded-bl-none" : ""
-            } ${isSelected ? "border-2 border-blue-400 bg-blue-100" : ""}`}
+            className={`py-2.5 px-3.5 rounded-[18px] shadow-md ${
+              isMe ? "bg-indigo-700" : "bg-yellow-400"
+            }`}
           >
-            {isSelected && (
-              <View className="absolute -top-2 -left-2 bg-white rounded-full p-1 border border-blue-400 z-10">
-                <Feather name="check" size={14} color="blue" />
-              </View>
-            )}
-
-            {/* Image */}
-            {item.type === "image" ? (
+            {item.message_type === "image" ? (
               <Image
-                source={{ uri: item.uri }}
-                style={{
-                  width: 200,
-                  height: 200,
-                  borderRadius: 12,
-                  resizeMode: "cover",
-                }}
+                source={{ uri: item.media_url }}
+                className="w-[200px] h-[200px] rounded-xl"
               />
-            ) : item.type === "video" ? (
+            ) : item.message_type === "video" ? (
               <Video
-                source={{ uri: item.uri }}
-                style={{
-                  width: 220,
-                  height: 200,
-                  borderRadius: 12,
-                  backgroundColor: "#000",
-                }}
+                source={{ uri: item.media_url }}
+                className="w-[220px] h-[200px] rounded-xl bg-black"
                 useNativeControls
                 resizeMode="contain"
               />
-            ) : item.type === "voice" ? (
-              <View className="py-1 px-1">
-                <VoicePlayer uri={item.uri} duration={item.duration} />
-              </View>
-            ) : item.type === "document" ? (
-              <View className="flex-row items-center">
-                <Feather name="file-text" size={20} color="#333" />
-                <Text
-                  className="ml-2 text-[15px] text-gray-800"
-                  numberOfLines={1}
-                >
-                  {item.name || "Document"}
-                </Text>
-              </View>
+            ) : item.message_type === "voice" ? (
+              <VoicePlayer uri={item.media_url} duration={item.duration} />
+            ) : item.message_type === "contact" ? (
+              <ContactBubble message={item} isOwnMessage={isMe} />
             ) : (
               <Text
-                className={`text-[15px] leading-5 ${
-                  isMe ? "text-white" : "text-gray-800"
-                }`}
+                className={`${isMe ? "text-white" : "text-gray-800"} text-[15px]`}
               >
-                {item.text}
+                {item.message || "[empty]"}
               </Text>
             )}
 
             {/* Time */}
-            {item.time && (
+            {item.created_at && (
               <Text
-                className={`text-[10px] mt-1 ${
-                  item.type === "document"
-                    ? "text-gray-700/70"
-                    : isMe
-                      ? "text-white/70"
-                      : "text-gray-700/70"
-                }`}
+                className={`text-[10px] mt-1 ${isMe ? "text-white/70" : "text-gray-700/70"}`}
               >
-                {item.time}
+                {formatTime(item.created_at)}
               </Text>
             )}
-            <TouchableOpacity
-              onLongPress={() => onLongPress(item)}
-              style={{ opacity: isSelected ? 0.5 : 1 }}
-            >
-              {item.type === "contact" && (
-                <ContactBubble
-                  message={item}
-                  isOwnMessage={item.sender === "You"}
-                />
-              )}
-            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
+        </View>
       </Animated.View>
     );
   };
@@ -209,18 +118,251 @@ const MessagesList = ({
       )}
 
       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
-        <FlatList
-          ref={flatListRef}
-          data={messages}
-          renderItem={renderMessage}
-          keyExtractor={(item) => item.id.toString()}
-          contentContainerStyle={{ padding: 16, paddingBottom: 80 }}
-          inverted
-          showsVerticalScrollIndicator={false}
-        />
+        {messages.length === 0 ? (
+          <View className="flex-1 items-center justify-center">
+            <Text className="text-gray-500">No messages yet</Text>
+          </View>
+        ) : (
+          <FlatList
+            ref={flatListRef}
+            data={messages}
+            keyExtractor={(item, index) =>
+              item.id?.toString() || index.toString()
+            }
+            renderItem={renderMessage}
+            inverted
+            contentContainerStyle={{ padding: 10 }}
+          />
+        )}
       </Animated.View>
     </View>
   );
 };
 
 export default MessagesList;
+
+
+
+// import React, { useEffect } from "react";
+// import { View, FlatList, Animated, Image, Text } from "react-native";
+// import { Video } from "expo-av";
+// import VoicePlayer from "../VoicePlayer/VoicePlayer";
+// import ContactBubble from "../ContactBubble/ContactBubble";
+// import { format } from "date-fns";
+
+// const MessagesList = ({ user, messages, fadeAnim, flatListRef, wallpaperUri }) => {
+//   const formatTime = (timestamp) => {
+//     try {
+//       return format(new Date(timestamp), "hh:mm a");
+//     } catch {
+//       return "";
+//     }
+//   };
+
+//   // Auto scroll when messages update
+//   useEffect(() => {
+//     if (messages.length > 0 && flatListRef?.current) {
+//       try {
+//         flatListRef.current.scrollToOffset({ offset: 0, animated: true });
+//       } catch (e) {
+//         console.log("Scroll error:", e);
+//       }
+//     }
+//   }, [messages]);
+
+//   const renderMessage = ({ item }) => {
+//     const isMe = item.sender_id === user?.id;
+
+//     return (
+//       <Animated.View>
+//         <View
+//           className={`max-w-[75%] my-2 flex-row ${
+//             isMe ? "self-end justify-end" : "self-start justify-start"
+//           }`}
+//         >
+//           {/* Bubble */}
+//           <View
+//             className={`py-2.5 px-3.5 rounded-[18px] shadow-md ${
+//               isMe ? "bg-indigo-700" : "bg-yellow-400"
+//             }`}
+//           >
+//             {item.message_type === "image" ? (
+//               <Image
+//                 source={{ uri: item.media_url }}
+//                 className="w-[200px] h-[200px] rounded-xl"
+//               />
+//             ) : item.message_type === "video" ? (
+//               <Video
+//                 source={{ uri: item.media_url }}
+//                 className="w-[220px] h-[200px] rounded-xl bg-black"
+//                 useNativeControls
+//                 resizeMode="contain"
+//               />
+//             ) : item.message_type === "audio" ? (
+//               <VoicePlayer uri={item.media_url} duration={item.duration} />
+//             ) : item.message_type === "contact" ? (
+//               <ContactBubble message={item} isOwnMessage={isMe} />
+//             ) : item.message_type === "file" ? (
+//               <Text className="text-sm text-gray-800">📄 File: {item.media_url}</Text>
+//             ) : (
+//               <Text
+//                 className={`${isMe ? "text-white" : "text-gray-800"} text-[15px]`}
+//               >
+//                 {item.message || "[empty]"}
+//               </Text>
+//             )}
+
+//             {/* Time */}
+//             {item.created_at && (
+//               <Text
+//                 className={`text-[10px] mt-1 ${
+//                   isMe ? "text-white/70" : "text-gray-700/70"
+//                 }`}
+//               >
+//                 {formatTime(item.created_at)}
+//               </Text>
+//             )}
+//           </View>
+//         </View>
+//       </Animated.View>
+//     );
+//   };
+
+//   return (
+//     <View
+//       style={{
+//         flex: 1,
+//         zIndex: 0,
+//         backgroundColor: wallpaperUri ? "transparent" : "#fef3c7",
+//       }}
+//     >
+//       {wallpaperUri && (
+//         <Image
+//           source={{ uri: wallpaperUri }}
+//           style={{
+//             position: "absolute",
+//             width: "100%",
+//             height: "100%",
+//             resizeMode: "cover",
+//           }}
+//         />
+//       )}
+
+//       <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+//         {messages.length === 0 ? (
+//           <View className="flex-1 items-center justify-center">
+//             <Text className="text-gray-500">No messages yet</Text>
+//           </View>
+//         ) : (
+//           <FlatList
+//             ref={flatListRef}
+//             data={messages}
+//             keyExtractor={(item, index) =>
+//               item.id?.toString() || index.toString()
+//             }
+//             renderItem={renderMessage}
+//             inverted
+//             contentContainerStyle={{ padding: 10 }}
+//           />
+//         )}
+//       </Animated.View>
+//     </View>
+//   );
+// };
+
+// export default MessagesList;
+
+
+
+//revers condition 
+// const renderMessage = ({ item }) => {
+//   // 🔄 Reversed condition: true if I'm the receiver
+//   const isMe = item.receiver_id === user?.id;
+
+//   // Avatar now depends on reversed logic
+//   const avatar = isMe ? item.sender_image : item.receiver_image;
+
+//   console.log("rendering item:", item.message, "| isMe:", isMe);
+
+//   return (
+//     <Animated.View>
+//       <View
+//         className={`max-w-[75%] my-2 flex-row ${
+//           isMe ? "self-end justify-end" : "self-start justify-start"
+//         }`}
+//       >
+//         {/* Avatar placeholder for incoming */}
+//         {!isMe ? (
+//           avatar ? (
+//             <Image
+//               source={{ uri: avatar }}
+//               className="w-8 h-8 rounded-full mr-2"
+//             />
+//           ) : (
+//             <View className="w-8 h-8 mr-2" />
+//           )
+//         ) : null}
+
+//         {/* Bubble */}
+//         <View
+//           className={`py-2.5 px-3.5 rounded-[18px] shadow-md ${
+//             isMe ? "bg-indigo-700" : "bg-yellow-400"
+//           }`}
+//         >
+//           {item.message_type === "image" ? (
+//             <Image
+//               source={{ uri: item.media_url }}
+//               className="w-[200px] h-[200px] rounded-xl"
+//             />
+//           ) : item.message_type === "video" ? (
+//             <Video
+//               source={{ uri: item.media_url }}
+//               className="w-[220px] h-[200px] rounded-xl bg-black"
+//               useNativeControls
+//               resizeMode="contain"
+//             />
+//           ) : item.message_type === "voice" ? (
+//             <VoicePlayer uri={item.media_url} duration={item.duration} />
+//           ) : item.message_type === "contact" ? (
+//             <ContactBubble message={item} isOwnMessage={isMe} />
+//           ) : (
+//             <Text
+//               className={`${isMe ? "text-white" : "text-gray-800"} text-[15px]`}
+//             >
+//               {item.message || "[empty]"}
+//             </Text>
+//           )}
+
+//           {/* Time */}
+//           {item.created_at && (
+//             <Text
+//               className={`text-[10px] mt-1 ${
+//                 isMe ? "text-white/70" : "text-gray-700/70"
+//               }`}
+//             >
+//               {formatTime(item.created_at)}
+//             </Text>
+//           )}
+//         </View>
+//       </View>
+//     </Animated.View>
+//   );
+// };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

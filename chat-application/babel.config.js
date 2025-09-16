@@ -12,7 +12,7 @@ module.exports = function (api) {
         safe: false,
         allowUndefined: true
       }],
-      "react-native-reanimated/plugin", // 👈 Add this line at the end
+      "react-native-worklets/plugin", // 👈 Add this line at the end
     ],
   };
 };

@@ -4,7 +4,7 @@ import chat_messages from "../config/Database.js";
 import user_invite_links from "../config/Database.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../utils/images/Cloudinary.js";
-import { io, getReceiverSocketId } from "../utils/socket/socket.js";
+import { io, getReceiverSocketId ,userSocketMap } from "../utils/socket/socket.js";
 import crypto from "crypto";
 export const otpSend = async (req, res) => {
   try {
@@ -244,23 +244,20 @@ export const getUserNameAndProfilePictureController = async (req, res) => {
     });
   } catch (error) {
     console.log(error);
-    return res
-      .status(500)
-      .json({
-        success: false,
-        message: error.message || "Internal Server Error",
-      });
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal Server Error",
+    });
   }
 };
 
 // set email for backup
 export const setBackupEmailController = async (req, res) => {
-  
   try {
     const userId = req.user.id;
     const { email } = req.body;
     console.log(userId, email);
-    
+
     if (!email) {
       return res.status(400).json({ error: "Email is required" });
     }
@@ -273,9 +270,7 @@ export const setBackupEmailController = async (req, res) => {
     console.error("Error setting backup email:", error);
     res.status(500).json({ error: "Failed to set backup email" });
   }
-  
 };
-
 
 export const getUserProfileController = async (req, res) => {
   try {
@@ -334,91 +329,57 @@ export const logout = async (req, res) => {
   }
 };
 
-// export const shareAndCheckcontact = async (req, res) => {
-//   try {
-
-//     const { io } = req.app;
-
-//     const { phone_number } = req.body;
-
-//     if (!phone_number) {
-//       return res.status(400).json({ success: false, error: "Phone number is required" });
-//     }
-
-//     // Check if phone number exist or not if not create link  so its can we share to othere  user
-//      const [rows] = await users.execute(
-//       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
-//       [phone_number]
-//     );
-
-//     if (rows.length === 0) {
-//       return res.status(404).json({ success: false, error: "User not found" });
-//     }else if(rows.length === 1){
-//       //if user founded so sended message in chat_message
-//       const chatMessage = {
-//         sender_id: req.user.id,
-//         receiver_id: rows[0].id,
-//         message: "You have a new contact!",
-//       };
-//       await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
-//     }
-
-//     const foundUser = rows[0];
-
-//     // Get receiver socket id
-//     const receiverSocketId = getReceiverSocketId(phone_number);
-//     if (receiverSocketId) {
-//       io.to(receiverSocketId).emit("new_contact", {
-//         fromUserId: req.user.id,  // sender
-//         contact: foundUser,       // receiver contact details
-//       });
-//     }
-
-//     return res.json({
-//       success: true,
-//       message: "Contact shared successfully",
-//       contact: foundUser,
-//     });
-
-//   } catch (error) {
-//     console.error("Error in shareAndCheckContact:", error);
-//     return res.status(500).json({ success: false, error: "Failed to share and check contact" });
-//   }
-// };
-
-//get all connect user list
 export const getUsersForSidebar = async (req, res) => {
   try {
-    const id = req.phone_number.id;
-    const { userSocketMap } = req.app; // Access userSocketMap from app locals
+    const id = req.user.id;
 
     if (!id) {
-      return res
-        .status(401)
-        .json({ success: false, error: "User not authenticated" });
+      return res.status(401).json({
+        success: false,
+        error: "User not authenticated",
+      });
     }
 
-    // Get all active users except the current one
+    // 🔹 Access userSocketMap from global/shared import (not req.app)
+    const { userSocketMap } = req.app.locals;
+
+    // Get all active  users except me and those only who i am chat history availble
     const [rows] = await users.execute(
-      `SELECT id, username, phone_number, status FROM users WHERE status = 'Active' AND id != ?`,
-      [id]
+      `SELECT 
+      u.id, 
+      u.username, 
+      u.phone_number, 
+      u.profile_picture, 
+      u.status
+   FROM users u
+   WHERE u.status = 'active'
+     AND u.id != ?
+     AND EXISTS (
+       SELECT 1 
+       FROM chat_messages cm 
+       WHERE (cm.sender_id = u.id AND cm.receiver_id = ?)
+          OR (cm.receiver_id = u.id AND cm.sender_id = ?)
+     )`,
+      [id, id, id]
     );
 
-    if (rows.length === 0) {
-      return res
-        .status(404)
-        .json({ success: false, error: "No active users found" });
+    if (!rows || rows.length === 0) {
+      return res.status(200).json({
+        success: true,
+        message: "No active users found",
+        data: { users: [] },
+      });
     }
 
-    //checking previous connected if yes show also detail
-    const userChatsExists = await chat_messages.execute(
+    // Get only my chat  user history
+    const [chatRows] = await chat_messages.execute(
       "SELECT * FROM chat_messages WHERE sender_id = ? OR receiver_id = ?",
       [id, id]
     );
 
-    // Map user IDs to their chat details
+    // 🔹 Build chat map
     const userChatMap = new Map();
-    userChatsExists.forEach((chat) => {
+    chatRows.forEach((chat) => {
       const otherUserId =
         chat.sender_id === id ? chat.receiver_id : chat.sender_id;
       if (!userChatMap.has(otherUserId)) {
@@ -427,145 +388,85 @@ export const getUsersForSidebar = async (req, res) => {
       userChatMap.get(otherUserId).push(chat);
     });
 
-    // Build online user list (based on sockets)
-    const onlineUserIds = new Set(Object.keys(userSocketMap)); // Faster lookup
+    // Online user IDs from socket map
+    const onlineUserIds = new Set(Object.keys(userSocketMap || {}));
 
-    // Combine user data with online status
-    const userList = rows.map((user) => ({
-      ...user,
-      isOnline: onlineUserIds.has(user.id.toString()), // true/false
-    }));
+    // Build response user list
+    const userList = rows.map((user) => {
+      const chats = userChatMap.get(user.id) || [];
+      const lastMessage =
+        chats.length > 0 ? chats[chats.length - 1].message : null;
 
-    // Return data to the client
+      return {
+        ...user,
+        isOnline: onlineUserIds.has(user.id.toString()),
+        lastMessage,
+      };
+    });
+
     return res.status(200).json({
       success: true,
       message: "Active users retrieved successfully",
-      data: userList,
+      data: { users: userList },
     });
   } catch (error) {
     console.error("Error showing list of contacts:", error);
-    return res
-      .status(500)
-      .json({ success: false, error: "Failed to retrieve contacts" });
+    return res.status(500).json({
+      success: false,
+      error: "Failed to retrieve contacts",
+    });
   }
 };
 
-// export const shareAndCheckcontact = async (req, res) => {
-//   try {
-//     const { io } = req.app;
-//     const { phone_number } = req.body;
-
-//     if (!phone_number) {
-//       return res.status(400).json({ success: false, error: "Phone number is required" });
-//     }
-
-//     // Check if phone number exists
-//     const [rows] = await users.execute(
-//       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
-//       [phone_number]
-//     );
-
-//     // Case 1: User not found → create share link
-//     if (rows.length === 0) {
-//       // Create a unique token for invitation
-//       const token = crypto.randomBytes(16).toString("hex");
-
-//       // You can create an invitation entry in DB (optional)-not mandatory
-//       await user_invite_links.execute(
-//         "INSERT INTO user_invite_links (user_id, phone_number, token) VALUES (?, ?, ?)",
-//         [req.user.id, phone_number, token]
-//       );
-
-//       // Generate shareable link (adjust base URL according to your frontend domain)
-//       const shareLink = `${process.env.APP_BASE_URL}/invite/${token}`;
-
-//       return res.status(200).json({
-//         success: true,
-//         message: "User not found. Share this link to invite the contact.",
-//         share_link: shareLink,
-//       });
-//     }
-
-//     // Case 2: User found → send chat message
-//     const foundUser = rows[0];
-//     const chatMessage = {
-//       sender_id: req.user.id,
-//       receiver_id: foundUser.id,
-//       message: "You have a new contact!",
-//     };
-
-//     await chat_messages.execute("INSERT INTO chat_messages SET ?", chatMessage);
-
-//     // Get receiver socket id
-//     const receiverSocketId = getReceiverSocketId(foundUser.phone_number);
-//     if (receiverSocketId) {
-//       io.to(receiverSocketId).emit("new_contact", {
-//         fromUserId: req.user.id, // sender
-//         contact: foundUser,      // receiver contact details
-//       });
-//     }
-
-//     return res.json({
-//       success: true,
-//       message: "Contact shared successfully",
-//       contact: foundUser,
-//     });
-
-//   } catch (error) {
-//     console.error("Error in shareAndCheckContact:", error);
-//     return res.status(500).json({ success: false, error: "Failed to share and check contact" });
-//   }
-// };
-
 export const shareAndCheckcontact = async (req, res) => {
   try {
-     //soket io
     const { io } = req.app;
     const { phone_number, name } = req.body;
-    console.log(name);
-    
-const cleanedNumber = phone_number.replace(/^\+91/, "");
-console.log(cleanedNumber);
-
-    
 
     if (!phone_number) {
-      return res.status(400).json({ success: false, error: "Phone number is required" });
+      return res
+        .status(400)
+        .json({ success: false, error: "Phone number is required" });
     }
- 
-    // Check if phone number exists
+
+    // clean number: remove spaces + +91
+    const cleanedNumber = phone_number.replace(/\s+/g, "").replace(/^\+91/, "");
+    console.log("Cleaned Number:", cleanedNumber);
+
+    // check if user exists
     const [rows] = await users.execute(
       "SELECT id, username, phone_number, profile_picture FROM users WHERE phone_number = ?",
       [cleanedNumber]
     );
 
-    // Case 1: User not found → create share link
-    if( rows.length === 0) {
-      res.status(404).json({ success: false, error: "User Not registered with us" });
-      return;
+    if (rows.length === 0) {
+      return res
+        .status(404)
+        .json({ success: false, message: "User not registered with us" });
     }
-    
 
-    
+    const foundUser = rows[0]; // ✅ define foundUser
 
-    // Get receiver socket id
+    // notify via socket if user is online
     const receiverSocketId = getReceiverSocketId(foundUser.phone_number);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("new_contact", {
         fromUserId: req.user.id, // sender
         contact: foundUser,
-        name: name,      // receiver contact details
+        name: name, // receiver's saved name
       });
     }
 
-    res.status(200).json({
+    // send response to client
+    return res.status(200).json({
       success: true,
       message: "User found",
       contact: foundUser,
     });
-
-    } catch (err) {
+  } catch (err) {
     console.error("Error in shareAndCheckContacts:", err);
-    res.status(500).json({ success: false, error: "Failed to check contacts" });
+    return res
+      .status(500)
+      .json({ success: false, error: "Failed to check contacts" });
   }
 };

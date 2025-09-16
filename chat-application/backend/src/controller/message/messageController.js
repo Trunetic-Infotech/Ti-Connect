@@ -1,4 +1,5 @@
 import chat_messages from "../../config/Database.js";
+import users from "../../config/Database.js";
 import cloudinary from "../../utils/images/Cloudinary.js";
 import { getReceiverSocketId, io } from "../../utils/socket/socket.js";
 
@@ -6,6 +7,11 @@ export const SendMessage = async (req, res) => {
   try {
     const sender_id = req.user.id; // ✅ fix destructuring
     const { receiver_id, message, message_type = "text" } = req.body;
+   
+    console.log("data",sender_id);
+    
+    console.log("Message data:", req.body);
+    
 
     if (!sender_id || !receiver_id || !message) {
       return res
@@ -27,18 +33,21 @@ export const SendMessage = async (req, res) => {
       message_type,
       created_at: new Date(),
     };
+ 
+  
 
-    // Send real-time update via Socket.IO
-    const receiverSocketId = getReceiverSocketId(receiver_id);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("receive_message", newMessage); // ✅ consistent event name
-    }
+    // ✅ Update sender last_seen_at (active while messaging)
+  await users.execute(
+    "UPDATE users SET last_seen_at = NOW() WHERE id = ?",
+    [sender_id]
+  );
 
-    // Optionally also send back to sender to confirm delivery
-    const senderSocketId = getReceiverSocketId(sender_id);
-    if (senderSocketId) {
-      io.to(senderSocketId).emit("receive_message", newMessage);
-    }
+  // Send to receiver
+  const receiverSocketId = getReceiverSocketId(receiver_id);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("receive_message", newMessage);
+  }
+   io.emit("message_sent", newMessage);
 
     res.json({
       success: true,
@@ -52,27 +61,77 @@ export const SendMessage = async (req, res) => {
 };
 
 //get messages
+// export const GetMessages = async (req, res) => {
+//   try {
+//     const myId = req.user.id;
+//     const { receiver_id } = req.body;
+
+//     if (!receiver_id) {
+//       return res.status(400).json({ error: "Receiver ID is required" });
+//     }
+
+//     const [rows] = await chat_messages.execute(
+//       `SELECT * FROM chat_messages 
+//    WHERE (sender_id = ? AND receiver_id = ?) 
+//       OR (sender_id = ? AND receiver_id = ?) 
+//    ORDER BY created_at ASC`,
+//       [myId, receiver_id, receiver_id, myId]
+//     );
+
+//     res.json({
+//       success: true,
+//       messages: rows,
+//     });
+//   } catch (error) {
+//     console.error("Error getting messages:", error);
+//     res.status(500).json({ error: "Failed to get messages" });
+//   }
+// };
 export const GetMessages = async (req, res) => {
   try {
     const myId = req.user.id;
-    const { receiver_id } = req.body;
-
+    const { receiver_id } = req.query; // use query params for GET
+    console.log(receiver_id,myId);
+    
     if (!receiver_id) {
       return res.status(400).json({ error: "Receiver ID is required" });
     }
+    if (Number(receiver_id) === Number(myId)) {
+      return res.status(400).json({ error: "Cannot fetch messages with yourself" });
+    }
 
     const [rows] = await chat_messages.execute(
-      `SELECT * FROM chat_messages 
-   WHERE (sender_id = ? AND receiver_id = ?) 
-      OR (sender_id = ? AND receiver_id = ?) 
-   ORDER BY created_at ASC`,
+      `SELECT m.*, 
+              sender.username AS sender_name, sender.profile_picture AS sender_image,
+              receiver.username AS receiver_name, receiver.profile_picture AS receiver_image
+       FROM chat_messages m
+       JOIN users sender ON m.sender_id = sender.id
+       JOIN users receiver ON m.receiver_id = receiver.id
+       WHERE (m.sender_id = ? AND m.receiver_id = ?) 
+          OR (m.sender_id = ? AND m.receiver_id = ?) 
+       ORDER BY m.created_at ASC`,
       [myId, receiver_id, receiver_id, myId]
     );
 
-    res.json({
-      success: true,
-      messages: rows,
-    });
+    console.log("messages ",rows);
+    
+
+    const messages = rows.map(msg => ({
+      id: msg.id,
+      sender_id: msg.sender_id,
+      receiver_id: msg.receiver_id,
+      message: msg.message,
+      message_type: msg.message_type,
+      media_url: msg.media_url,
+      is_read: msg.is_read,
+      created_at: new Date(msg.created_at).toISOString(),
+      sender_name: msg.sender_name,
+      sender_image: msg.sender_image,
+      receiver_name: msg.receiver_name,
+      receiver_image: msg.receiver_image,
+    }));
+
+    res.json({ success: true, messages });
   } catch (error) {
     console.error("Error getting messages:", error);
     res.status(500).json({ error: "Failed to get messages" });

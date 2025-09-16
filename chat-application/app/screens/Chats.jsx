@@ -1,4 +1,205 @@
-import React, { useState,useEffect } from "react";
+// import React, { useState, useEffect } from "react";
+// import {
+//   View,
+//   Text,
+//   TextInput,
+//   ScrollView,
+//   TouchableOpacity,
+//   Image,
+//   Alert,
+// } from "react-native";
+// import { SafeAreaView } from "react-native-safe-area-context";
+// import { Feather, FontAwesome5 } from "@expo/vector-icons";
+// import { useNavigation } from "@react-navigation/native";
+// import logoImg from "../../assets/images/Chat-Logo.png";
+// import { useLocalSearchParams, useRouter } from "expo-router";
+// import axios from "axios";
+// import { useDispatch, useSelector } from "react-redux";
+// import { setOnlineUsers } from "../redux/features/auth";
+// import * as SecureStore from "expo-secure-store";
+// const Chats = () => {
+//   const [search, setSearch] = useState("");
+//   const [selectedTab, setSelectedTab] = useState("All");
+//   // const [chatList, setChatList] = useState(initialChats);
+//   const navigation = useNavigation();
+//   const router = useRouter();
+//   const [chatsList, setChatsList] = useState([]);
+//   // const { user } = useLocalSearchParams();
+//   // const parsedUser = user ? JSON.parse(user) : null;
+//   //  const user = useSelector((state) => state.auth.user);
+//   //   const token = useSelector((state) => state.auth.token);
+//   const dispatch = useDispatch();
+//   const fetchChatList = async () => {
+//     const token = await SecureStore.getItemAsync("token");
+//     try {
+//       const response = await axios.get(
+//         `${process.env.EXPO_API_URL}/list/online`,
+//         {
+//           headers: {
+//             Authorization: `Bearer ${token}`,
+//           },
+//         }
+//       );
+
+//       console.log(response.data);
+
+//       if (response.data?.success) {
+//         const mappedChats = response.data.data.users.map((user) => ({
+//           id: user.id,
+//           name: user.username,
+//           image: user.profile_picture ?? "",
+//           text: user.lastMessage ?? "",
+//         }));
+//         setChatsList(mappedChats);
+//         dispatch(setOnlineUsers(response.data.data.users));
+//       }
+//     } catch (error) {
+//       console.log("Error fetching user list:", error);
+//     }
+//   };
+
+//   // Filter chats
+//   const filteredChats = chatsList.filter((chat) => {
+//     const name = chat.name || "";
+//     const text = chat.text || "";
+
+//     return (
+//       name.toLowerCase().includes(search.toLowerCase()) ||
+//       text.toLowerCase().includes(search.toLowerCase())
+//     );
+//   });
+
+//   useEffect(() => {
+//     fetchChatList();
+//   }, []);
+
+//   return (
+//     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
+//       {/* Header */}
+//       <View className="px-5 pt-6 pb-3 bg-indigo-600 rounded-b-3xl">
+//         <Image
+//           source={logoImg}
+//           style={{ width: 200, height: 46, alignSelf: "center" }}
+//         />
+
+//         <View className="flex-row items-center bg-white rounded-full px-5 shadow-sm mt-3">
+//           <Feather name="search" size={20} color="#555" />
+//           <TextInput
+//             placeholder="Search chats..."
+//             className="ml-3 flex-1 text-base text-gray-800"
+//             placeholderTextColor="#999"
+//             value={search}
+//             onChangeText={setSearch}
+//           />
+//         </View>
+//       </View>
+
+//       {/* Tabs */}
+//       <View className="flex-row justify-between mx-4 mt-5 mb-4">
+//         {[
+//           { title: "All", type: "filter" },
+//           { title: "Unread", screen: "UnRead", type: "navigate" },
+//           { title: "Groups", screen: "Groups", type: "navigate" },
+//         ].map((item, index) => (
+//           <TouchableOpacity
+//             key={index}
+//             onPress={() => {
+//               if (item.type === "filter") {
+//                 setSelectedTab("All");
+//               } else {
+//                 navigation.navigate(item.screen);
+//               }
+//             }}
+//             className={`flex-1 mx-1 py-2 rounded-full ${
+//               selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
+//             }`}
+//             activeOpacity={0.9}
+//           >
+//             <Text className="text-center text-white font-semibold">
+//               {item.title}
+//             </Text>
+//           </TouchableOpacity>
+//         ))}
+//       </View>
+
+//       {/* Chat List (only for All tab) */}
+//       {/* {selectedTab === "All" && (
+//         <ScrollView
+//           className="px-4"
+//           contentContainerStyle={{ paddingBottom: 120 }}
+//         >
+//           <View className="space-y-4 gap-3">
+//             {filteredChats.map((chat) => (
+//               <TouchableOpacity
+//                 key={chat.id}
+//                 onPress={() => router.push("/screens/Message")}
+//                 activeOpacity={0.9}
+//                 className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
+//               >
+//                 <View className="flex-row items-center gap-4">
+//                   <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+//                   <View>
+//                     <Text className="text-lg font-semibold text-gray-800">
+//                       {chat.name}
+//                     </Text>
+//                     <Text className="text-sm text-gray-500">{chat.text}</Text>
+//                   </View>
+//                 </View>
+//                 <Text className="text-xs text-gray-400">{chat.time}</Text>
+//               </TouchableOpacity>
+//             ))}
+//           </View>
+//         </ScrollView>
+//       )} */}
+//       {selectedTab === "All" && (
+//         <ScrollView
+//           className="px-4"
+//           contentContainerStyle={{ paddingBottom: 120 }}
+//         >
+//           <View className="space-y-4 gap-3">
+//             {filteredChats.map((chat) => (
+//               <TouchableOpacity
+//                 key={chat.id}
+//                 onPress={() =>
+//                   router.push({
+//                     pathname: "/screens/Message",
+//                     params: { chatUser: JSON.stringify(chat) },
+//                   })
+//                 }
+//                 activeOpacity={0.9}
+//                 className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
+//               >
+//                 <View className="flex-row items-center gap-4">
+//                   <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+//                   <View>
+//                     <Text className="text-lg font-semibold text-gray-800">
+//                       {chat.name}
+//                     </Text>
+//                     <Text className="text-sm text-gray-500">{chat.text}</Text>
+//                   </View>
+//                 </View>
+//                 <Text className="text-xs text-gray-400">{chat.time}</Text>
+//               </TouchableOpacity>
+//             ))}
+//           </View>
+//         </ScrollView>
+//       )}
+//       {/* Add Contact Floating Button */}
+//       <TouchableOpacity
+//         onPress={() => router.push("/screens/pages/AddContact")}
+//         className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+//       >
+//         <Feather name="user-plus" size={26} color="#fff" />
+//       </TouchableOpacity>
+//     </SafeAreaView>
+//   );
+// };
+
+// export default Chats;
+
+
+
+import React, { useState, useEffect } from "react";
 import {
   View,
   Text,
@@ -6,7 +207,6 @@ import {
   ScrollView,
   TouchableOpacity,
   Image,
-  Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
@@ -14,23 +214,24 @@ import { useNavigation } from "@react-navigation/native";
 import logoImg from "../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
 import axios from "axios";
-import { useDispatch, useSelector } from "react-redux";
+import { useDispatch } from "react-redux";
 import { setOnlineUsers } from "../redux/features/auth";
+import * as SecureStore from "expo-secure-store";
 
 const Chats = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("All");
-  // const [chatList, setChatList] = useState(initialChats);
+  const [chatsList, setChatsList] = useState([]);
   const navigation = useNavigation();
   const router = useRouter();
-  const [chatsList, setChatsList] = useState([]);
- const user = useSelector((state) => state.auth.user);
-  const token = useSelector((state) => state.auth.token);
   const dispatch = useDispatch();
+
+  // Fetch chat list
   const fetchChatList = async () => {
+    const token = await SecureStore.getItemAsync("token");
     try {
       const response = await axios.get(
-        `${process.env.EXPO_API_URL}/list/online/${user.phone_number}`,
+        `${process.env.EXPO_API_URL}/list/online`,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -38,15 +239,12 @@ const Chats = () => {
         }
       );
 
-      console.log(response.data);
-
       if (response.data?.success) {
-        const mappedChats = response.data.data.users.map((u) => ({
-          id: u.id,
-          name: u.username ?? "Unknown",
-          image: u.profile_picture ?? "",
-          text: u.lastMessage ?? "",
-          time: u.lastMessageTime ?? "",
+        const mappedChats = response.data.data.users.map((user) => ({
+          id: user.id,
+          name: user.username,
+          image: user.profile_picture ?? "",
+          text: user.lastMessage ?? "",
         }));
         setChatsList(mappedChats);
         dispatch(setOnlineUsers(response.data.data.users));
@@ -54,36 +252,22 @@ const Chats = () => {
     } catch (error) {
       console.log("Error fetching user list:", error);
     }
-  }; // <-- fixed closing brace
+  };
 
-  // Filter chats
+  // Filter chats by search
   const filteredChats = chatsList.filter((chat) => {
-    const matchesSearch =
-      chat.name.toLowerCase().includes(search.toLowerCase()) ||
-      chat.text.toLowerCase().includes(search.toLowerCase());
-    return matchesSearch;
+    const name = chat.name || "";
+    const text = chat.text || "";
+
+    return (
+      name.toLowerCase().includes(search.toLowerCase()) ||
+      text.toLowerCase().includes(search.toLowerCase())
+    );
   });
 
   useEffect(() => {
     fetchChatList();
   }, []);
-
-  // // Delete phone b on long press
-  // const handleDelete = (id, name) => {
-  //   Alert.alert(
-  //     "Delete Chat",
-  //     `Are you sure you want to delete chat with ${name}?`,
-  //     [
-  //       { text: "Cancel", style: "cancel" },
-  //       {
-  //         text: "Delete",
-  //         style: "destructive",
-  //         onPress: () =>
-  //           setChatList((prev) => prev.filter((chat) => chat.id !== id)),
-  //       },initialChats
-  //     ]
-  //   );
-  // };
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -134,35 +318,7 @@ const Chats = () => {
         ))}
       </View>
 
-      {/* Chat List (only for All tab) */}
-      {/* {selectedTab === "All" && (
-        <ScrollView
-          className="px-4"
-          contentContainerStyle={{ paddingBottom: 120 }}
-        >
-          <View className="space-y-4 gap-3">
-            {filteredChats.map((chat) => (
-              <TouchableOpacity
-                key={chat.id}
-                onPress={() => router.push("/screens/Message")}
-                activeOpacity={0.9}
-                className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
-              >
-                <View className="flex-row items-center gap-4">
-                  <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
-                  <View>
-                    <Text className="text-lg font-semibold text-gray-800">
-                      {chat.name}
-                    </Text>
-                    <Text className="text-sm text-gray-500">{chat.text}</Text>
-                  </View>
-                </View>
-                <Text className="text-xs text-gray-400">{chat.time}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
-        </ScrollView>
-      )} */}
+      {/* Chat List */}
       {selectedTab === "All" && (
         <ScrollView
           className="px-4"
@@ -172,12 +328,24 @@ const Chats = () => {
             {filteredChats.map((chat) => (
               <TouchableOpacity
                 key={chat.id}
-                onPress={() => router.push("/screens/Message")}
+                onPress={() =>
+                  router.push({
+                    pathname: "/screens/Message",
+                    params: { user: JSON.stringify(chat) }
+                  })
+                }
                 activeOpacity={0.9}
                 className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
               >
                 <View className="flex-row items-center gap-4">
-                  <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+                  {chat.image ? (
+                    <Image
+                      source={{ uri: chat.image }}
+                      style={{ width: 44, height: 44, borderRadius: 22 }}
+                    />
+                  ) : (
+                    <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+                  )}
                   <View>
                     <Text className="text-lg font-semibold text-gray-800">
                       {chat.name}
@@ -185,12 +353,13 @@ const Chats = () => {
                     <Text className="text-sm text-gray-500">{chat.text}</Text>
                   </View>
                 </View>
-                <Text className="text-xs text-gray-400">{chat.time}</Text>
+                {/* Optionally add time if available */}
               </TouchableOpacity>
             ))}
           </View>
         </ScrollView>
       )}
+
       {/* Add Contact Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/AddContact")}
