@@ -350,10 +350,13 @@ export const getUsersForSidebar = async (req, res) => {
       u.username, 
       u.phone_number, 
       u.profile_picture, 
-      u.status
+      u.status,
+      u.last_seen_at,
+      u.email,
+      u.created_at
    FROM users u
-   WHERE u.status = 'active'
-     AND u.id != ?
+   WHERE 
+      u.id != ?
      AND EXISTS (
        SELECT 1 
        FROM chat_messages cm 
@@ -403,6 +406,8 @@ export const getUsersForSidebar = async (req, res) => {
         lastMessage,
       };
     });
+
+    // console.log("Online users:", userList);
 
     return res.status(200).json({
       success: true,

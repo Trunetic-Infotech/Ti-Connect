@@ -61,3 +61,33 @@ CREATE TABLE group_messages (
     FOREIGN KEY (sender_id) REFERENCES group_members(id),
     FOREIGN KEY (receiver_id) REFERENCES group_members(id)
 );
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+--  //filrer online users
+--   //  const onlineUserIds = onlineUsers.map((u) => u.id);
+--   // const filteredUsers = showOnlineOnly //   ? users.filter((user) => onlineUserIds.includes(user.id))
+--   //    : users;  // if (isUserLoading) return <Text>Loading...</Text>;
+--   //  Filter chats by search //
+--   // const filteredChats = chatsList.filter((chat) => { //     const name = chat.name || "";
+--   //  const text = chat.text || "";
+--   //    return ( //       name.toLowerCase().includes(search.toLowerCase()) || //       text.toLowerCase().includes(search.toLowerCase()) //     ); //   });

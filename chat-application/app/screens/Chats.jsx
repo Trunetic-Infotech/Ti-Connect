@@ -197,8 +197,6 @@
 
 // export default Chats;
 
-
-
 import React, { useState, useEffect } from "react";
 import {
   View,
@@ -214,7 +212,7 @@ import { useNavigation } from "@react-navigation/native";
 import logoImg from "../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
 import axios from "axios";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import { setOnlineUsers } from "../redux/features/auth";
 import * as SecureStore from "expo-secure-store";
 
@@ -224,8 +222,15 @@ const Chats = () => {
   const [chatsList, setChatsList] = useState([]);
   const navigation = useNavigation();
   const router = useRouter();
+  const [showOnlineOnly, setShowOnlineOnly] = useState(false);
+
+
   const dispatch = useDispatch();
 
+  const { users, isUserLoading } = useSelector(
+    (state) => state.messages
+  );
+  const onlineUsers = useSelector((state) => state.auth.onlineUsers);
   // Fetch chat list
   const fetchChatList = async () => {
     const token = await SecureStore.getItemAsync("token");
@@ -239,12 +244,17 @@ const Chats = () => {
         }
       );
 
+      console.log("Online users:", response);
+
       if (response.data?.success) {
         const mappedChats = response.data.data.users.map((user) => ({
           id: user.id,
+          phoneNumber: user.phone_number,
           name: user.username,
           image: user.profile_picture ?? "",
           text: user.lastMessage ?? "",
+          isOnline: user.status ?? "",
+          lastSeen: user.last_seen_at ?? "none",
         }));
         setChatsList(mappedChats);
         dispatch(setOnlineUsers(response.data.data.users));
@@ -254,15 +264,24 @@ const Chats = () => {
     }
   };
 
-  // Filter chats by search
-  const filteredChats = chatsList.filter((chat) => {
-    const name = chat.name || "";
-    const text = chat.text || "";
+  if (isUserLoading) return <Text>Loading...</Text>;
 
-    return (
-      name.toLowerCase().includes(search.toLowerCase()) ||
-      text.toLowerCase().includes(search.toLowerCase())
-    );
+  const filteredChats = chatsList.filter((chat) => {
+    const name = chat.name?.toLowerCase() || "";
+    const text = chat.text?.toLowerCase() || "";
+
+    const matchesSearch =
+      name.includes(search.toLowerCase()) ||
+      text.includes(search.toLowerCase());
+
+    if (showOnlineOnly) {
+      const onlineUserIds = onlineUsers.map((u) => u.id);
+      return matchesSearch && onlineUserIds
+        ? users.filter((user) => onlineUserIds.includes(user.id))
+        : users;
+    }
+
+    return matchesSearch;
   });
 
   useEffect(() => {
@@ -331,7 +350,7 @@ const Chats = () => {
                 onPress={() =>
                   router.push({
                     pathname: "/screens/Message",
-                    params: { user: JSON.stringify(chat) }
+                    params: { user: JSON.stringify(chat) },
                   })
                 }
                 activeOpacity={0.9}
@@ -344,13 +363,39 @@ const Chats = () => {
                       style={{ width: 44, height: 44, borderRadius: 22 }}
                     />
                   ) : (
-                    <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+                    <FontAwesome5
+                      name="user-circle"
+                      size={44}
+                      color="#6366f1"
+                    />
                   )}
                   <View>
                     <Text className="text-lg font-semibold text-gray-800">
                       {chat.name}
+
+                      <View className="flex-row items-center">
+                        <View
+                          style={{
+                            width: 8,
+                            height: 8,
+                            borderRadius: 4,
+                            backgroundColor:
+                              onlineUsers[chat.id] === "active" ? "green" : "gray",
+                            marginRight: 6,
+                          }}
+                        />
+                        <Text className="text-sm text-gray-500">
+                          {onlineUsers[chat.id] === "active" ? "Online" : "Offline"}
+                        </Text>
+                      </View>
                     </Text>
-                    <Text className="text-sm text-gray-500">{chat.text}</Text>
+                    <Text
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={{ flexWrap: "wrap", maxWidth: 200 }}
+                    >
+                      {chat.text}
+                    </Text>
                   </View>
                 </View>
                 {/* Optionally add time if available */}
@@ -367,6 +412,14 @@ const Chats = () => {
       >
         <Feather name="user-plus" size={26} color="#fff" />
       </TouchableOpacity>
+
+      {filteredChats.length === 0 && (
+        <View className="flex-1 items-center justify-center">
+          <Text className="text-lg font-semibold text-gray-500">
+            No Chats Found for "{search}"
+          </Text>
+        </View>
+      )}
     </SafeAreaView>
   );
 };

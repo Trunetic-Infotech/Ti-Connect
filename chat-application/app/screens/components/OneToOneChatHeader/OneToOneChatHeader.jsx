@@ -14,6 +14,9 @@ import { useRouter } from "expo-router";
 import * as Audio from "expo-av";
 import * as Camera from "expo-camera";
 import WallPaper from "../ChangeWallPaper/WallPaper";
+import { format, isToday } from "date-fns";
+import { useDispatch } from "react-redux";
+import { setOnlineUsers } from "../../../redux/features/auth";
 
 const OneToOneChatHeader = ({
   user,
@@ -25,6 +28,8 @@ const OneToOneChatHeader = ({
   const [isRequestingPermission, setIsRequestingPermission] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [wallpaperModalVisible, setWallpaperModalVisible] = useState(false);
+
+  console.log("Onlinedata", user);
 
   const requestAudioPermissionAndCall = async () => {
     setIsRequestingPermission(true);
@@ -42,6 +47,11 @@ const OneToOneChatHeader = ({
     }
   };
 
+  const formattedLastSeen = user?.lastSeen
+    ? isToday(new Date(user.lastSeen))
+      ? `Today at ${format(new Date(user.lastSeen), "hh:mm a")}`
+      : format(new Date(user.lastSeen), "dd MMM yyyy, hh:mm a")
+    : null;
   const requestCameraPermissionAndCall = async () => {
     const { status } = await Camera.Camera.requestCameraPermissionsAsync();
 
@@ -87,18 +97,22 @@ const OneToOneChatHeader = ({
                 />
 
                 <TouchableOpacity
-                  onPress={() => router.push("/screens/pages/ProfileEdit")}
+                  onPress={() => router.push({
+                    pathname: "/screens/pages/ProfileEdit",
+                    params: { user: JSON.stringify(user) },
+
+                  })}
                 >
                   <View>
                     <Text className="text-white font-semibold text-lg leading-tight">
                       {user?.name}
                     </Text>
                     <Text className="text-white/70 text-xs mt-0.5">
-                      {user?.status === "active"
+                      {user?.isOnline === "active"
                         ? "Online"
-                        : user?.last_seen
-                          ? `Last seen: ${user.last_seen}`
-                          : ""}
+                        : formattedLastSeen
+                          ? ` ${formattedLastSeen}`
+                          : "Offline"}
                     </Text>
                   </View>
                 </TouchableOpacity>

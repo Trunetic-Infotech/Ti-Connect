@@ -14,7 +14,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useRouter } from "expo-router";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
-
+// import { connectSocket } from "../../services/socketService";
 // const API_URL = "http://192.168.1.36:5000";
 const UserName = () => {
   const [user, setUser] = useState([])
@@ -22,7 +22,7 @@ const UserName = () => {
   const [userName, setUserName] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const [imgUrl, setImgUrl] = useState(null);
+  // const [imgUrl, setImgUrl] = useState(null);
 
   const fetcgUserNameAndProfilePicture = async()=>{
 
@@ -44,7 +44,7 @@ const UserName = () => {
 
         const userData = response.data.data[0];
         console.log(userData);
-        
+  
         setUserName(userData.username || "");
         setImage(userData.profile_picture || null)
         

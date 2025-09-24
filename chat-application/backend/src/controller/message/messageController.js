@@ -42,13 +42,21 @@ export const SendMessage = async (req, res) => {
     [sender_id]
   );
 
-  // Send to receiver
-  const receiverSocketId = getReceiverSocketId(receiver_id);
-  if (receiverSocketId) {
-    io.to(receiverSocketId).emit("receive_message", newMessage);
-  }
-   io.emit("message_sent", newMessage);
+ 
+// Emit to receiver if online  Send to receiver
+    const receiverSocketId = getReceiverSocketId(receiver_id);
+    if (receiverSocketId) {
+      io.to(receiverSocketId).emit("newMessage", newMessage);
+    }
+    console.log("Receiver Socket ID:", receiverSocketId);
 
+    // Emit to sender (so their UI updates immediately)
+    // const senderSocketId = getReceiverSocketId(sender_id);
+    // if (senderSocketId) {
+    //   io.to(senderSocketId).emit("newMessage", newMessage);
+    // };
+    //  console.log("sender Socket ID:", senderSocketId);
+   
     res.json({
       success: true,
       message: "Message sent successfully",
@@ -113,7 +121,7 @@ export const GetMessages = async (req, res) => {
       [myId, receiver_id, receiver_id, myId]
     );
 
-    console.log("messages ",rows);
+    // console.log("messages ",rows);
     
 
     const messages = rows.map(msg => ({
@@ -130,6 +138,14 @@ export const GetMessages = async (req, res) => {
       receiver_name: msg.receiver_name,
       receiver_image: msg.receiver_image,
     }));
+
+
+// Send to receiver
+  const receiverSocketId = getReceiverSocketId(receiver_id);
+  if (receiverSocketId) {
+    io.to(receiverSocketId).emit("receive_message", messages);
+  }
+   io.emit("send_message", messages);
 
     res.json({ success: true, messages });
   } catch (error) {

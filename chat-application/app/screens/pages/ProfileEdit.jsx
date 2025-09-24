@@ -2,170 +2,110 @@ import React, { useState } from "react";
 import {
   View,
   Text,
-  TextInput,
   Image,
   TouchableOpacity,
   KeyboardAvoidingView,
   Platform,
-  Alert,
-  Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, FontAwesome } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
-import * as ImagePicker from "expo-image-picker";
 
 const ProfileEdit = () => {
   const router = useRouter();
-  const [name, setName] = useState("Aman Verma");
-  const [phone, setPhone] = useState("+91 557993469");
-  const [image, setImage] = useState(require("../../../assets/images/dp.jpg"));
-  const [modalVisible, setModalVisible] = useState(false);
+  const params = useLocalSearchParams();
 
-  const pickImage = async () => {
-    setModalVisible(false);
-
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== "granted") {
-      Alert.alert("Permission Required", "We need access to your photos.");
-      return;
+  let user = params.user;
+  try {
+    if (typeof user === "string") {
+      user = JSON.parse(user);
     }
+  } catch (e) {
+    console.warn("Failed to parse user param:", e);
+  }
 
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 1,
-    });
+  const [name] = useState(user?.name || "Aman Verma");
+  const [bio] = useState(user?.bioDescription || "Busy with work");
+  const [phone] = useState(user?.phoneNumber || "557993469");
+  const [image] = useState(
+    user?.image ? { uri: user.image } : require("../../../assets/images/dp.jpg")
+  );
 
-    if (!result.canceled) {
-      setImage({ uri: result.assets[0].uri });
-    }
-  };
-
-  const removeImage = () => {
-    setModalVisible(false);
-    setImage(require("../../../assets/images/userDp.png")); // fallback default
-  };
+  
 
   return (
-    <SafeAreaView className="flex-1 bg-white">
-      {/* Header */}
+    <SafeAreaView className="flex-1 bg-gray-50">
+      {/* Header with wave effect */}
       <LinearGradient
-        colors={["#6366f1", "#8b5cf6"]}
+        colors={["#6366f1", "#8b5cf6", "#ec4899"]}
         start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 0 }}
-        className="py-5 px-4 rounded-b-3xl shadow-md"
+        end={{ x: 1, y: 1 }}
+        className="h-52 rounded-b-[50px] shadow-lg relative"
       >
-        <View className="flex-row items-center">
-          <TouchableOpacity onPress={() => router.back()}>
+        {/* Back button */}
+        <View className="flex-row items-center justify-between px-5 pt-8">
+          <TouchableOpacity
+            onPress={() => router.back()}
+            className="p-2 rounded-full bg-white/20 active:opacity-70"
+          >
             <FontAwesome6 name="arrow-left-long" size={22} color="white" />
           </TouchableOpacity>
-          <Text className="text-white text-xl font-semibold ml-4">
-            Edit Profile
-          </Text>
+
+          <Text className="text-white text-xl font-bold">My Profile</Text>
+          <View></View>
         </View>
       </LinearGradient>
+
+      {/* Floating profile picture */}
+      <View className="items-center -mt-20">
+        <View className="relative">
+          <Image
+            source={image}
+            style={{
+              width: 140,
+              height: 140,
+              borderRadius: 70,
+              borderWidth: 5,
+              borderColor: "#fff",
+              shadowColor: "#8b5cf6",
+              shadowOpacity: 0.4,
+              shadowRadius: 15,
+              elevation: 10,
+            }}
+          />
+        </View>
+        <Text className="text-xl font-semibold text-gray-800 mt-3">{name}</Text>
+        <Text className="text-sm text-gray-500">
+          {user?.isOnline === "active" ? "🟢 Online" : "⚫ Offline"}
+        </Text>
+      </View>
 
       {/* Body */}
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 px-6 pt-6"
+        className="flex-1 px-6 pt-8"
       >
-        <View className="items-center mb-6">
-          <TouchableOpacity onPress={() => setModalVisible(true)}>
-            <View className="relative">
-              <Image
-                source={image}
-                style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: 50,
-                  borderWidth: 3,
-                  borderColor: "#6366f1",
-                }}
-              />
-              <View className="absolute bottom-0 right-0 bg-white p-2 rounded-full shadow">
-                <FontAwesome name="camera" size={16} color="#6366f1" />
-              </View>
-            </View>
-          </TouchableOpacity>
-
-          <Text className="text-lg font-medium text-gray-800 mt-4">{name}</Text>
-        </View>
-
-        {/* Input Fields */}
-        <View className="space-y-5">
+        {/* Glassmorphism Info Card */}
+        <View className="bg-white/80 rounded-3xl p-6 shadow-xl border border-gray-100 space-y-6">
           <View>
-            <Text className="text-gray-600 mb-1 ml-1">Full Name</Text>
-            <TextInput
-              value={name}
-              onChangeText={setName}
-              className="bg-gray-100 px-4 py-3 rounded-xl text-base text-gray-800"
-              placeholder="Enter your name"
-              placeholderTextColor="#999"
-            />
-          </View>
-
-          <View>
-            <Text className="text-gray-600 mb-1 ml-1">Phone Number</Text>
-            <TextInput
-              value={phone}
-              onChangeText={setPhone}
-              keyboardType="phone-pad"
-              className="bg-gray-100 px-4 py-3 rounded-xl text-base text-gray-800"
-              placeholder="Enter your phone number"
-              placeholderTextColor="#999"
-            />
-          </View>
-
-          <TouchableOpacity
-            onPress={() => console.log("Save pressed")}
-            className="bg-indigo-500 py-3 rounded-xl shadow mt-4"
-          >
-            <Text className="text-white text-center text-base font-semibold">
-              Save Changes
+            <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+              Phone Number
             </Text>
-          </TouchableOpacity>
+            <Text className="text-lg font-semibold text-gray-900 tracking-wide">
+              +91 {phone}
+            </Text>
+          </View>
+
+          <View className="border-t border-gray-200 pt-5">
+            <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+              About Me
+            </Text>
+            <Text className="text-base text-gray-700 leading-6">{bio}</Text>
+          </View>
         </View>
+    
       </KeyboardAvoidingView>
-
-      {/* Image Options Modal */}
-      <Modal
-        transparent
-        visible={modalVisible}
-        animationType="fade"
-        onRequestClose={() => setModalVisible(false)}
-      >
-        <TouchableOpacity
-          onPress={() => setModalVisible(false)}
-          className="flex-1 bg-black/40 justify-center items-center px-6"
-          activeOpacity={1}
-        >
-          <View className="bg-white w-full rounded-2xl p-6">
-            <Text className="text-lg font-semibold mb-4 text-center">
-              Profile Photo
-            </Text>
-            <TouchableOpacity
-              onPress={pickImage}
-              className="py-3 px-4 rounded-xl bg-indigo-100 mb-3"
-            >
-              <Text className="text-indigo-600 text-center font-medium">
-                Change Image
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={removeImage}
-              className="py-3 px-4 rounded-xl bg-red-100"
-            >
-              <Text className="text-red-600 text-center font-medium">
-                Remove Image
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 };

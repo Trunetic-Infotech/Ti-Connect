@@ -640,6 +640,39 @@ export const GetAllUserGroups = async (req, res) => {
 };
 
 
+//get a list of user who as chat history and contact list match with user phone number 
+
+export const getListOfUser = async (req, res) => {
+  try {
+    // ✅ just assign directly
+    const id = req.user?.id;
+
+    if (!id) {
+      return res.status(400).json({ error: "User ID is required" });
+    }
+
+    // get current user's phone number
+    const [row] = await execute("SELECT phone_number FROM users WHERE id = ?", [id]);
+
+    if (!row || row.length === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const phoneNumber = row[0].phone_number;  
+
+    // get all other users except current
+    const [rows] = await execute(
+      "SELECT phone_number FROM users WHERE phone_number != ?",
+      [phoneNumber]
+    );
+
+    return res.json({ success: true, data: rows });
+  } catch (error) {
+    console.error("getListOfUser error:", error);
+    return res.status(500).json({ error: "Internal Server Error" });
+  }
+};
+ 
 
 
 

@@ -7,6 +7,7 @@ import AuthRoutes from "./routes/UserRoutes/AuthRoutes.js";
 import MessageRoutes from "./routes/messageRoutes/messageRoutes.js"
 import { app, server } from "../src/utils/socket/socket.js";
 import groupRoutes from "./routes/messageRoutes/groupeRoutes.js";
+import cookieParser from "cookie-parser";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(
   })
 );
 const PORT = process.env.PORT || 5000;
+app.use(cookieParser());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));

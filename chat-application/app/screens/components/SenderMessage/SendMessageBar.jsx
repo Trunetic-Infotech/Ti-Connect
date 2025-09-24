@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   TextInput,
@@ -11,11 +11,20 @@ import { Feather } from "@expo/vector-icons";
 import * as SecureStore from "expo-secure-store";
 import { useLocalSearchParams } from "expo-router";
 import axios from "axios";
+import { useDispatch, useSelector } from "react-redux";
+import { pushNewMessage } from "../../../redux/features/messagesSlice"; 
+import { getSocket } from "../../../services/socketService";
+import { set } from "date-fns";
 
-const SendMessageBar = () => {
+const SendMessageBar = ({handleGetMessage}) => {
   const [attachmentOptionsVisible, setAttachmentOptionsVisible] = useState(false);
   const [messageText, setMessageText] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [messagetype,setMessageType] = useState("text");
+  const [media,setMedia] = useState(null);
   const [recording, setRecording] = useState(false);
+  const dispatch = useDispatch();
+  const myId = useSelector((state) => state.auth?.user?.id);
    const { user } = useLocalSearchParams();
   const parsedUser = user ? JSON.parse(user) : null;
   
@@ -23,26 +32,46 @@ const SendMessageBar = () => {
    // 🔹 Handle Send
   const handleSendMessage = async () => {
     if (!messageText.trim()) return;
+  const msgData = {
+    // sender_id: myId,
+    receiver_id: parsedUser?.id,
+    message: messageText,
+    message_type: "text",
+    created_at: new Date().toISOString(),
+    myId: myId, // ✅ needed for messagesSlice addMessage logic
+  };
 
     try {
+
+        // 1️⃣ Emit via socket (real-time)
+    const socket = getSocket();
+    if (socket) {
+      socket.emit("newMessage", msgData);
+    }
+
+    // 2️⃣ Optimistically add to Redux
+    dispatch(pushNewMessage(msgData));
+
+    // 3️⃣ Clear input
+    setMessageText("");
+
+
       const token = await SecureStore.getItemAsync("token");
 
       const response = await axios.post(
         `${process.env.EXPO_API_URL}/messages`, 
-        {
-          receiver_id: parsedUser?.id,   // 👈 pass receiver id
-          message: messageText,   // 👈 backend expects "message"
-          message_type: "text",
-        },
+         msgData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
           },
         }
       );
-
+  console.log("responsedaya",response.data);
+  
       if (response.data.success) {
         setMessageText(""); // ✅ clear input after sending
+        handleGetMessage();
       } else {
         console.log("Error sending message:", response.data.message);
         Alert.alert("Error", "Failed to send message.");
@@ -53,6 +82,26 @@ const SendMessageBar = () => {
     }
   };
 
+  useEffect(()=>{
+
+    const socket= getSocket();
+
+    if(!socket) return;
+
+    const handleNewMessage = (msgData)=>{
+      if(msgData.sender_id === myId || msgData.receiver_id === myId){
+         dispatch(pushNewMessage(msgData));
+      }
+    };
+
+    socket.on("newMessage",handleNewMessage);
+    
+   return ()=>{
+    socket.off("newMessage",handleNewMessage);
+   }
+
+
+  },[myId, dispatch])
 
 
   return (

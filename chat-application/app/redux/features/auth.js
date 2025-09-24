@@ -1,25 +1,3 @@
-// import { createSlice } from '@reduxjs/toolkit'
-
-// const authSlice = createSlice({
-//   name: 'auth',
-//   initialState: {
-//     user: null,
-//     isLoggedIn: false,
-//   },
-//   reducers: {
-//     login: (state, action) => {
-//       state.user = action.payload;
-//       state.isLoggedIn = true;
-//     },
-//     logout: (state) => {
-//       state.user = null;
-//       state.isLoggedIn = false;
-//     },
-//   },
-// });
-
-// export const { login, logout } = authSlice.actions;
-// export default authSlice.reducer;
 import { createSlice } from "@reduxjs/toolkit";
 
 const authSlice = createSlice({
@@ -28,7 +6,9 @@ const authSlice = createSlice({
     token: null,
     user: null,
     isLoggedIn: false,
-    onlineUsers: [],
+    onlineUsers: [],          // ✅ clearer name
+    selectedUser: null,       // ✅ clearer name
+    typingUsers: {},
     typingStatus: {},
   },
   reducers: {
@@ -41,21 +21,26 @@ const authSlice = createSlice({
     },
     logout: (state) => {
       state.user = null;
-      state.token =null;
+      state.token = null;
       state.isLoggedIn = false;
-      state.onlineUsers = [];
-      state.typingStatus = {};
     },
-       setOnlineUsers: (state, action) => {
-      const { userId, status } = action.payload;
-      if (status === "active") {
-        if (!state.onlineUsers.includes(userId)) {
-          state.onlineUsers.push(userId);
-        }
-      } else {
-        state.onlineUsers = state.onlineUsers.filter((id) => id !== userId);
+
+    // ✅ for current user's online users
+    setOnlineUsers: (state, action) => {
+     // action.payload can be array of users or single update
+      if (Array.isArray(action.payload)) {
+        const onlineMap = {};
+        action.payload.forEach((u) => {
+          onlineMap[u.id] = u.status; // status: "active" | "inactive"
+        });
+        state.onlineUsers = onlineMap;
+      } else if (action.payload.userId) {
+        state.onlineUsers[action.payload.userId] = action.payload.status;
       }
+  
     },
+
+
     setTyping: (state, action) => {
       const { userId, isTyping } = action.payload;
       state.typingUsers[userId] = isTyping;
@@ -63,15 +48,20 @@ const authSlice = createSlice({
     clearTyping: (state) => {
       state.typingUsers = {};
     },
+    setSelectedUser: (state, action) => {
+      state.selectedUser = action.payload;
+    },
   },
 });
 
 export const {
   setToken,
   setUser,
-  clearTyping,
   logout,
   setOnlineUsers,
   setTyping,
+  clearTyping,
+  setSelectedUser,
 } = authSlice.actions;
+
 export default authSlice.reducer;

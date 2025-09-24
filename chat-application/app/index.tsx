@@ -1,20 +1,22 @@
-
 import "../global.css";
 import { useRouter } from "expo-router";
 import { useEffect, useState } from "react";
 import axios from "axios";
-import { useDispatch } from "react-redux";
+import { useDispatch, useSelector } from "react-redux";
 import * as SecureStore from "expo-secure-store";
 import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen";
 import { View, Text, ActivityIndicator } from "react-native";
-import { setUser } from "./redux/features/auth";
+import { setOnlineUsers, setUser } from "./redux/features/auth";
+// import { setSocket } from "./redux/features/socketSlice";
+import {connectSocket, disconnectSocket} from "./services/socketService";
 
 
 export default function Index() {
   const router = useRouter();
-  const dispatch = useDispatch();
   const [loading, setLoading] = useState(true);
-
+const user = useSelector((state) => state.auth?.user);
+const isloggedIn = useSelector((state) => state.auth?.isloggedIn);
+  const dispatch = useDispatch();
   const UserProfile = async () => {
     try {
       // 1. Load token from SecureStore
@@ -33,10 +35,14 @@ export default function Index() {
       },
       });
 
-      console.log("User profile fatch",response);
+      // console.log("User profile fatch",response);
       
     if (response.status === 200 && response.data?.data) {
-          dispatch(setUser(response.data.data)); // only user object
+      const user = response.data.data;
+      dispatch(setUser(user));
+          dispatch(setOnlineUsers(user)); // only user object
+             connectSocket(user.id); // connect socket with user id
+ 
         } else {
           console.error("Failed to fetch user profile");
           router.replace("/screens/home");
@@ -52,6 +58,29 @@ export default function Index() {
   useEffect(() => {
     UserProfile();
   }, []);
+  
+  useEffect(() => {
+    if(user){
+      const socket =  connectSocket(user.id);
+
+    socket.on("getOnlineUsers",(user) => {
+      dispatch(setOnlineUsers(user));
+    })
+
+    return() =>disconnectSocket();
+
+    }
+  },[user]);
+
+ if(isloggedIn && !user?.id){
+  return (
+    <View className="flex-1 items-center justify-center bg-white">
+      <ActivityIndicator size="large" color="#0000ff" />
+      <Text className="mt-2">Loading...</Text>
+    </View>
+  );
+ }
+
 
   if (loading) {
     return (
