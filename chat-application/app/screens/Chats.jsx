@@ -244,7 +244,7 @@ const Chats = () => {
         }
       );
 
-      console.log("Online users:", response);
+      // console.log("Online users:", response);
 
       if (response.data?.success) {
         const mappedChats = response.data.data.users.map((user) => ({
@@ -356,12 +356,21 @@ const Chats = () => {
                 activeOpacity={0.9}
                 className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
               >
+
                 <View className="flex-row items-center gap-4">
                   {chat.image ? (
+                 <View>
                     <Image
-                      source={{ uri: chat.image }}
-                      style={{ width: 44, height: 44, borderRadius: 22 }}
+                    source={{ uri: chat.image }}
+                    style={{ width: 44, height: 44, borderRadius: 22 }}
                     />
+                    <View
+                    className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-white rounded-full ${
+                      chat.status === "active" ? "bg-green-500" : "bg-gray-500"
+                      }`}
+                      />
+                      </View>
+                    
                   ) : (
                     <FontAwesome5
                       name="user-circle"
@@ -372,22 +381,6 @@ const Chats = () => {
                   <View>
                     <Text className="text-lg font-semibold text-gray-800">
                       {chat.name}
-
-                      <View className="flex-row items-center">
-                        <View
-                          style={{
-                            width: 8,
-                            height: 8,
-                            borderRadius: 4,
-                            backgroundColor:
-                              onlineUsers[chat.id] === "active" ? "green" : "gray",
-                            marginRight: 6,
-                          }}
-                        />
-                        <Text className="text-sm text-gray-500">
-                          {onlineUsers[chat.id] === "active" ? "Online" : "Offline"}
-                        </Text>
-                      </View>
                     </Text>
                     <Text
                       numberOfLines={1}
@@ -407,7 +400,13 @@ const Chats = () => {
 
       {/* Add Contact Floating Button */}
       <TouchableOpacity
-        onPress={() => router.push("/screens/pages/AddContact")}
+        onPress={() =>
+  router.push({
+    pathname: "/screens/pages/AddContact",
+    params: {  type: "single" },
+  })
+}
+
         className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
         <Feather name="user-plus" size={26} color="#fff" />

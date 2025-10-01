@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -13,60 +13,73 @@ import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import logoImg from "../../../assets/images/Chat-Logo.png";
-
-const initialGroups = [
-  {
-    id: 1,
-    name: "Friends Group",
-    text: "Let's plan something for weekend.",
-    time: "10:15 AM",
-    unread: true,
-  },
-  {
-    id: 2,
-    name: "Family Members",
-    text: "Dinner at 8 PM!",
-    time: "Yesterday",
-    unread: false,
-  },
-  {
-    id: 3,
-    name: "Office Team",
-    text: "Project deadline extended.",
-    time: "Monday",
-    unread: true,
-  },
-];
+import * as SecureStore from "expo-secure-store";
+import axios from "axios";
 
 const Groups = () => {
   const [search, setSearch] = useState("");
   const [selectedTab, setSelectedTab] = useState("Groups");
-  const [groups, setGroups] = useState(initialGroups);
+  const [groups, setGroups] = useState([]);
   const navigation = useNavigation();
   const router = useRouter();
 
-  // 🔍 Filtered groups
+  // 🔹 Fetch groups from backend
+  const fetchGroupsList = async () => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      console.log("No token found → redirecting to login");
+      router.replace("/screens/home");
+      return;
+    }
+
+    try {
+      const response = await axios.get(`${process.env.EXPO_API_URL}/groups/list`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("Groups list:", response.data);
+
+      if (response.data?.success) {
+        // Map API data to frontend-friendly format
+        const mappedGroups = response.data.data.map((group) => ({
+          id: group.id,
+          name: group.group_name,
+          text: group.last_message || "No messages yet",
+          time: group.last_message_time || "",
+          active_members: group.active_members,
+          groupImage: group.group_picture,
+          role: group.user_role,
+        }));
+        setGroups(mappedGroups);
+      }
+    } catch (error) {
+      console.log("❌ Error fetching groups:", error);
+    }
+  };
+
+  // 🔍 Filter groups based on search
   const filteredGroups = groups.filter(
     (group) =>
       group.name.toLowerCase().includes(search.toLowerCase()) ||
       group.text.toLowerCase().includes(search.toLowerCase())
   );
 
-  // ✅ delete group
+  // ✅ Delete group locally
   const handleDeleteGroup = (id) => {
     setGroups((prev) => prev.filter((group) => group.id !== id));
   };
 
+  // ✅ Confirm delete alert
   const confirmDelete = (id) => {
     Alert.alert("Delete Group", "Are you sure you want to delete this group?", [
       { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: () => handleDeleteGroup(id),
-      },
+      { text: "Delete", style: "destructive", onPress: () => handleDeleteGroup(id) },
     ]);
   };
+
+  useEffect(() => {
+    fetchGroupsList();
+  }, []);
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -77,6 +90,7 @@ const Groups = () => {
           style={{ width: 200, height: 46, alignSelf: "center" }}
         />
 
+        {/* Search Bar */}
         <View className="flex-row items-center bg-white rounded-full px-5 py-0 shadow-sm mt-3">
           <Feather name="search" size={20} color="#555" />
           <TextInput
@@ -94,52 +108,76 @@ const Groups = () => {
         {[
           { title: "All", screen: "Chats", type: "navigate" },
           { title: "Unread", screen: "UnRead", type: "navigate" },
-          { title: "Groups", type: "filter" }, // local filter tab
+          { title: "Groups", type: "filter" }, // local filter
         ].map((item, index) => (
           <TouchableOpacity
             key={index}
             onPress={() => {
-              if (item.type === "filter") {
-                setSelectedTab("Groups"); // stay on Groups
-              } else {
-                navigation.navigate(item.screen); // go to Chats or UnRead
-              }
+              if (item.type === "filter") setSelectedTab("Groups");
+              else navigation.navigate(item.screen);
             }}
             className={`flex-1 mx-1 py-2 rounded-full ${
               selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
             }`}
             activeOpacity={0.9}
           >
-            <Text className="text-center text-white font-semibold">
-              {item.title}
-            </Text>
+            <Text className="text-center text-white font-semibold">{item.title}</Text>
           </TouchableOpacity>
         ))}
       </View>
 
+      {/* No Groups Found */}
+      {filteredGroups.length === 0 && (
+        <View className="flex-1 items-center justify-center mt-20 px-6">
+          <FontAwesome5 name="users-slash" size={64} color="#9ca3af" />
+          <Text className="text-xl font-bold text-gray-700 mt-4">No Groups Found</Text>
+          <Text className="text-sm text-gray-500 mt-2 text-center">
+            Try creating a new group or adjust your search.
+          </Text>
+
+          <TouchableOpacity
+            onPress={() => router.push("/screens/pages/CreateGroup")}
+            className="mt-6 bg-indigo-600 px-6 py-3 rounded-full shadow-md"
+          >
+            <Text className="text-white font-semibold text-base">Create New Group</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       {/* Groups List */}
-      {selectedTab === "Groups" && (
-        <ScrollView
-          className="px-4"
-          contentContainerStyle={{ paddingBottom: 120 }}
-        >
+      {selectedTab === "Groups" && filteredGroups.length > 0 && (
+        <ScrollView className="px-4" contentContainerStyle={{ paddingBottom: 120 }}>
           <View className="space-y-4 gap-3">
             {filteredGroups.map((group) => (
               <TouchableOpacity
                 key={group.id}
-                onPress={() => router.push("/screens/pages/GroupMessage")}
+                onPress={() =>
+                  router.push({
+                    pathname: "/screens/pages/GroupMessage",
+                    params: { groupedata: JSON.stringify(group) },
+                  })
+                }
                 onLongPress={() => confirmDelete(group.id)}
                 delayLongPress={400}
                 activeOpacity={0.9}
                 className="flex-row justify-between items-center bg-indigo-100 px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
               >
                 <View className="flex-row items-center gap-4">
-                  <FontAwesome5 name="users" size={44} color="#6366f1" />
+                  {group.groupImage ? (
+                    <Image
+                      source={{ uri: group.groupImage }}
+                      className="w-14 h-14 rounded-full"
+                    />
+                  ) : (
+                    <FontAwesome5 name="users" size={44} color="#6366f1" />
+                  )}
+
                   <View>
-                    <Text className="text-lg font-semibold text-gray-800">
-                      {group.name}
+                    <Text className="text-lg font-semibold">{group.name}</Text>
+                    <Text className="text-gray-800">{group.text}</Text>
+                    <Text className="text-sm text-gray-500">
+                      {group.active_members} members
                     </Text>
-                    <Text className="text-sm text-gray-500">{group.text}</Text>
                   </View>
                 </View>
                 <Text className="text-xs text-gray-400">{group.time}</Text>

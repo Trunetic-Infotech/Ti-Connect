@@ -15,6 +15,26 @@ export const SendGroupMessage = async (req, res) => {
         .json({ error: "Group ID and message are required" });
     }
 
+// Check if user is blocked in the group
+const [blockedRows] = await group_members.execute(
+  "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Block_Group = ?",
+  [groupId, sender_id, "block"] // "block" means blocked
+);
+
+if (blockedRows.length > 0) {
+  return res.status(403).json({ error: "You are blocked in this group" });
+}
+
+// check user has left the group
+const [leftRows] = await group_members.execute(
+  "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Leave_Group = ?",
+  [groupId, sender_id, 1] // 1 means user has left the group
+);
+
+if (leftRows.length > 0) {
+  return res.status(403).json({ error: "You have left this group" });
+}
+
     // 🔹 Check if user is a member of the group
     const [groupRows] = await group_members.execute(
       "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
@@ -43,9 +63,11 @@ export const SendGroupMessage = async (req, res) => {
       created_at: new Date(),
     };
 
+    // 🔹 Broadcast message to everyone in the group room
+    io.to(`group_${groupId}`).emit("groupNewMessage", newGroupMessage);
+    console.log("Broadcasting to group:", groupId);
     
-    // 🔹 Emit message to all users in the group room
-    io.to(groupId).emit("group_message", newGroupMessage);
+    
 
     // Respond to sender
     res.json({
@@ -70,6 +92,26 @@ export const GetGroupMessages = async (req, res) => {
       return res.status(400).json({ error: "Group ID is required" });
     }
 
+    // Check if user is blocked in the group
+const [blockedRows] = await group_members.execute(
+  "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Block_Group = ?",
+  [groupId, sender_id, "block"] // "block" means blocked
+);
+
+if (blockedRows.length > 0) {
+  return res.status(403).json({ error: "You are blocked in this group" });
+}
+
+// check user has left the group
+const [leftRows] = await group_members.execute(
+  "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Leave_Group = ?",
+  [groupId, sender_id, 1] // 1 means user has left the group
+);
+
+if (leftRows.length > 0) {
+  return res.status(403).json({ error: "You have left this group" });
+}
+
     // 🔹 Check if the user is a member of the group
     const [groupRows] = await group_members.execute(
       "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
@@ -86,7 +128,7 @@ export const GetGroupMessages = async (req, res) => {
     const [messages] = await group_messages.execute(
       `SELECT * FROM group_messages
        WHERE group_id = ?
-       ORDER BY created_at ASC`[groupId]
+       ORDER BY created_at ASC`, [groupId]
     );
 
     // Respond with messages

@@ -2,8 +2,6 @@ import React, { useState, useRef, useEffect } from "react";
 import {
   View,
   Text,
-  Image,
-  FlatList,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
@@ -13,9 +11,8 @@ import {
   TouchableOpacity,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { useRouter } from "expo-router";
-
-import dp from "../../../assets/images/dp.jpg";
+import { useRouter, useLocalSearchParams } from "expo-router";
+import axios from "axios"; // ✅ API calls
 
 import GroupChatHeader from "../components/GroupChatHeader/GroupChatHeader";
 import SendMessageBar from "../components/SenderMessage/SendMessageBar";
@@ -25,23 +22,8 @@ import MessagesList from "../components/MessagesList/MessagesList";
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-const initialMessages = [
-  { id: 1, sender: "Aman", text: "Hey team! 👋", avatar: dp },
-  {
-    id: 2,
-    sender: "Priya",
-    text: "Hi Aman! Working on the design update.",
-    avatar: dp,
-  },
-  {
-    id: 3,
-    sender: "You",
-    text: "Great! Let me know if any help is needed 💻",
-    avatar: dp,
-  },
-];
-
 const GroupMessage = () => {
+  // ------------------- STATE -------------------
   const [messages, setMessages] = useState([]);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -54,15 +36,21 @@ const GroupMessage = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
+  const params = useLocalSearchParams();
+  let GroupDetails = params.groupedata;
+
+  // Parse JSON if passed as string
+  try {
+    if (typeof GroupDetails === "string") {
+      GroupDetails = JSON.parse(GroupDetails);
+    }
+  } catch (e) {
+    console.log("Failed to parse GroupDetails:", e);
+  }
+
+  // ------------------- LOAD INITIAL DATA -------------------
   useEffect(() => {
-    setTimeout(() => {
-      setMessages(initialMessages);
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-    }, 300);
+    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
   }, []);
 
   useEffect(() => {
@@ -72,36 +60,45 @@ const GroupMessage = () => {
     })();
   }, []);
 
+  // Fetch messages from backend
+  useEffect(() => {
+    const fetchMessages = async () => {
+      try {
+        const res = await axios.get(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`);
+        setMessages(res.data.messages || []);
+      } catch (err) {
+        console.error("Error fetching messages:", err);
+      }
+    };
+    if (GroupDetails?.id) fetchMessages();
+  }, [GroupDetails]);
+
+  // ------------------- FUNCTIONS -------------------
   const toggleMessageSelection = (id) => {
     setSelectedMessages((prev) =>
       prev.includes(id) ? prev.filter((msgId) => msgId !== id) : [...prev, id]
     );
   };
 
-  const handleLongPress = (item) => {
-    toggleMessageSelection(item.id);
-  };
+  const handleLongPress = (item) => toggleMessageSelection(item.id);
 
-  const deleteSelectedMessages = () => {
-    Alert.alert(
-      "Delete Messages",
-      `Are you sure you want to delete ${selectedMessages.length} message(s)?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setMessages((prev) =>
-              prev.filter((msg) => !selectedMessages.includes(msg.id))
-            );
+  const deleteSelectedMessages = async () => {
+    Alert.alert("Delete Messages", `Delete ${selectedMessages.length} message(s)?`, [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: async () => {
+          try {
+            await axios.delete(`${process.env.EXPO_API_URL}/messages`, { data: { ids: selectedMessages } });
+            setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
             setSelectedMessages([]);
-            setEditingMessageId(null);
-            setMessageText("");
-          },
+          } catch (err) {
+            console.error("Delete failed:", err);
+          }
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const cancelSelection = () => {
@@ -121,50 +118,36 @@ const GroupMessage = () => {
     }
   };
 
-  const handleSend = (message) => {
-    if (editingMessageId && message.type === "text") {
-      // Editing a text message
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === editingMessageId ? { ...msg, text: message.text } : msg
-        )
-      );
-      setEditingMessageId(null);
-      setMessageText("");
-    } else {
-      // New message (text or image)
-      const newMsg = {
-        id: Date.now(),
-        sender: "You",
-        avatar: dp,
-        time: new Date().toLocaleTimeString([], {
-          hour: "2-digit",
-          minute: "2-digit",
-        }),
-        ...message, // Spread type, text, uri
-      };
-      setMessages((prev) => [newMsg, ...prev]);
-
-      Animated.timing(fadeAnim, {
-        toValue: 1,
-        duration: 300,
-        useNativeDriver: true,
-      }).start();
-
-      setTimeout(() => {
-        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
-      }, 100);
-
-      if (message.type === "text") {
+  const handleSend = async (message) => {
+    try {
+      if (editingMessageId && message.type === "text") {
+        // Update existing message
+        await axios.put(`${process.env.EXPO_API_URL}/messages/${editingMessageId}`, { text: message.text });
+        setMessages((prev) =>
+          prev.map((msg) => (msg.id === editingMessageId ? { ...msg, text: message.text } : msg))
+        );
+        setEditingMessageId(null);
         setMessageText("");
+      } else {
+        // Send new message
+        const res = await axios.post(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`, message);
+        setMessages((prev) => [res.data, ...prev]);
+
+        setTimeout(() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
+        if (message.type === "text") setMessageText("");
       }
+    } catch (err) {
+      console.error("Send failed:", err);
     }
   };
 
-  const clearChat = () => {
-    setMessages([]);
-    setSelectedMessages([]);
-    setEditingMessageId(null);
+  const clearChat = async () => {
+    try {
+      await axios.delete(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`);
+      setMessages([]);
+    } catch (err) {
+      console.error("Clear chat failed:", err);
+    }
   };
 
   const handleWallpaperChange = async (uri) => {
@@ -177,36 +160,25 @@ const GroupMessage = () => {
     }
   };
 
+  // ------------------- RENDER -------------------
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
-      style={{ flex: 1 }}
-    >
+    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
           <GroupChatHeader
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
+            GroupDetails={GroupDetails}
             onLeaveGroup={() => {
-              Alert.alert(
-                "Leave Group",
-                "Are you sure you want to leave this group? You won't be able to send or receive messages after leaving.",
-                [
-                  { text: "Cancel", style: "cancel" },
-                  {
-                    text: "Leave",
-                    style: "destructive",
-                    onPress: () => {
-                      setHasLeftGroup(true);
-                      setSelectedMessages([]);
-                      setEditingMessageId(null);
-                      setMessageText("");
-                    },
-                  },
-                ]
-              );
+              Alert.alert("Leave Group", "Leave this group?", [
+                { text: "Cancel", style: "cancel" },
+                {
+                  text: "Leave",
+                  style: "destructive",
+                  onPress: () => setHasLeftGroup(true),
+                },
+              ]);
             }}
           />
 
@@ -215,35 +187,26 @@ const GroupMessage = () => {
               <Text className="text-center text-gray-600 text-lg">
                 You have left this group. You cannot send or receive messages.
               </Text>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Back to Groups
-                </Text>
+              <TouchableOpacity onPress={() => router.back()} className="mt-4 px-5 py-2 bg-indigo-600 rounded-full">
+                <Text className="text-white font-semibold text-center">Back to Groups</Text>
               </TouchableOpacity>
             </View>
           ) : isBlocked ? (
             <BlockedOverlay
               onUnblock={() => setIsBlocked(false)}
               onDelete={() => {
-                Alert.alert(
-                  "Delete Chat",
-                  "Are you sure you want to delete this chat?",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: () => {
-                        setMessages([]);
-                        setIsBlocked(false);
-                        router.back();
-                      },
+                Alert.alert("Delete Chat", "Delete this chat?", [
+                  { text: "Cancel", style: "cancel" },
+                  {
+                    text: "Delete",
+                    style: "destructive",
+                    onPress: () => {
+                      setMessages([]);
+                      setIsBlocked(false);
+                      router.back();
                     },
-                  ]
-                );
+                  },
+                ]);
               }}
             />
           ) : (

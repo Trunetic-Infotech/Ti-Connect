@@ -7,7 +7,6 @@ import * as SecureStore from "expo-secure-store";
 import TabHomeScreen from "./screens/BottomNavigation/TabHomeScreen";
 import { View, Text, ActivityIndicator } from "react-native";
 import { setOnlineUsers, setUser } from "./redux/features/auth";
-// import { setSocket } from "./redux/features/socketSlice";
 import {connectSocket, disconnectSocket} from "./services/socketService";
 
 
@@ -27,7 +26,7 @@ const isloggedIn = useSelector((state) => state.auth?.isloggedIn);
         return;
       }
 
-      console.log("User Token:", token);
+      // console.log("User Token:", token);
 
       const response = await axios.get(`${process.env.EXPO_API_URL}/users/profile`, {
         headers: {
