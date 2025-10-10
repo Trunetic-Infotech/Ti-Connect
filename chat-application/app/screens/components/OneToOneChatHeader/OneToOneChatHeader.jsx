@@ -14,7 +14,7 @@ import { useRouter } from "expo-router";
 import * as Audio from "expo-av";
 import * as Camera from "expo-camera";
 import WallPaper from "../ChangeWallPaper/WallPaper";
-import { format, isToday } from "date-fns";
+import { format, isToday, parseISO, isValid } from "date-fns";
 import { useDispatch } from "react-redux";
 import { setOnlineUsers } from "../../../redux/features/auth";
 
@@ -47,11 +47,26 @@ const OneToOneChatHeader = ({
     }
   };
 
-  const formattedLastSeen = user?.lastSeen
-    ? isToday(new Date(user.lastSeen))
-      ? `Today at ${format(new Date(user.lastSeen), "hh:mm a")}`
-      : format(new Date(user.lastSeen), "dd MMM yyyy, hh:mm a")
-    : null;
+  const formattedLastSeen = (() => {
+    if (!user?.lastSeen) return null;
+
+    let dateObj;
+    // Try parsing as ISO first
+    try {
+      dateObj = parseISO(user.lastSeen);
+      // If it's invalid, try converting manually
+      if (!isValid(dateObj))
+        dateObj = new Date(user.lastSeen.replace(" ", "T"));
+    } catch {
+      return null;
+    }
+
+    if (!isValid(dateObj)) return null;
+
+    return isToday(dateObj)
+      ? `Today at ${format(dateObj, "hh:mm a")}`
+      : format(dateObj, "dd MMM yyyy, hh:mm a");
+  })();
   const requestCameraPermissionAndCall = async () => {
     const { status } = await Camera.Camera.requestCameraPermissionsAsync();
 

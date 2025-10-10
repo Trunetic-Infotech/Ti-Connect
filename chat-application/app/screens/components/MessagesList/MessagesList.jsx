@@ -399,7 +399,12 @@ const MessagesList = ({
                   setSelectedMedia({ type: "document", uri: item.media_url })
                 }
               >
-                <DocumentViewer uri={item.media_url} />
+                <View>
+                  <Text className="text-gray-800 underline">
+                    {item.media_filename || "View Document"}
+                  </Text>
+                </View>
+                {/* <DocumentViewer uri={item.media_url} /> */}
               </TouchableOpacity>
             ) : item.message_type === "file" ? (
               <TouchableOpacity
