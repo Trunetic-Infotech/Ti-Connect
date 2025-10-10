@@ -176,6 +176,12 @@ const AddContact = () => {
       if (response.data.success) {
         Alert.alert(response.data.message || "Users added successfully");
         setSelectedUsers([]);
+        // send back to group chat 
+        router.replace({
+          pathname: "./GroupMessage",
+          params: { GroupDetails: JSON.stringify(response.data.success) },
+          type: "group",
+        });
       } else {
         Alert.alert("Error", response.data.message || "Failed to add users");
       }

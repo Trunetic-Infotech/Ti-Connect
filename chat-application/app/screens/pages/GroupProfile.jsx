@@ -144,7 +144,7 @@ const GroupProfile = () => {
       />
       <View
         className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-white rounded-full ${
-          item.status === "online" ? "bg-green-500" : "bg-gray-500"
+          item.status === "active" ? "bg-green-500" : "bg-gray-500"
         }`}
       />
     </View>
@@ -158,7 +158,7 @@ const GroupProfile = () => {
       </View>
             </Pressable>
 
-      {GroupDetails?.role === "Admin" && (
+      {GroupDetails?.role === "Admin" || GroupDetails?.role === "admin" && (
         <Pressable
           onPress={() => handleDeleteMember(item.id)}
           android_ripple={{ color: "#fee2e2" }}

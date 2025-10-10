@@ -63,6 +63,38 @@ CREATE TABLE group_messages (
 );
 
 
+-- INSERT INTO ti_connect.group_messages 
+-- (group_id, sender_id, message, message_type, created_at) 
+-- VALUES
+-- (1, 1, 'Hello everyone, welcome to the group!', 'text', NOW()),
+-- (1, 6, 'Hi all, good to be here!', 'text', NOW() - INTERVAL 1 MINUTE),
+-- (1, 2, 'Did you check the latest updates?', 'text', NOW() - INTERVAL 2 MINUTE),
+-- (1, 1, 'Yes, I saw them yesterday.', 'text', NOW() - INTERVAL 3 MINUTE),
+-- (1, 2, 'Let’s schedule a meeting tomorrow.', 'text', NOW() - INTERVAL 4 MINUTE),
+-- (1, 6, 'Okays.', 'text', NOW() - INTERVAL 4 MINUTE);
+-- (1, 3, 'I will be available after 3 PM.', 'text', NOW() - INTERVAL 5 MINUTE),
+
+USE ti_connect;
+
+DELIMITER $$
+
+CREATE TRIGGER after_group_create
+AFTER INSERT ON create_groups
+FOR EACH ROW
+BEGIN
+  -- Insert admin into group_members only if not already present
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM group_members 
+    WHERE group_id = NEW.id 
+      AND user_id = NEW.admin_id
+  ) THEN
+    INSERT INTO group_members (group_id, user_id, role)
+    VALUES (NEW.id, NEW.admin_id, 'admin');
+  END IF;
+END$$
+
+DELIMITER ;
 
 
 
@@ -78,16 +110,3 @@ CREATE TABLE group_messages (
 
 
 
-
-
-
-
-
---  //filrer online users
---   //  const onlineUserIds = onlineUsers.map((u) => u.id);
---   // const filteredUsers = showOnlineOnly //   ? users.filter((user) => onlineUserIds.includes(user.id))
---   //    : users;  // if (isUserLoading) return <Text>Loading...</Text>;
---   //  Filter chats by search //
---   // const filteredChats = chatsList.filter((chat) => { //     const name = chat.name || "";
---   //  const text = chat.text || "";
---   //    return ( //       name.toLowerCase().includes(search.toLowerCase()) || //       text.toLowerCase().includes(search.toLowerCase()) //     ); //   });

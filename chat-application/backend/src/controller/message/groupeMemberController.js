@@ -115,9 +115,8 @@ export const AddMembersToGroup = async (req, res) => {
       "INSERT INTO group_members (group_id, user_id) VALUES ?",
       [memberValues]
     );
- 
+
     // console.log("Limited New Members:", memberValues);
-    
 
     // ✅ Get new members info
     const [newMembersInfo] = await users.execute(
@@ -161,42 +160,42 @@ export const GetGroupMembers = async (req, res) => {
     const { groupId } = req.params;
     const user_id = req.user.id;
 
-
     if (!groupId) {
       return res.status(400).json({ error: "Group ID is required" });
     }
 
     // ✅ Check if group exists
     const [groupRows] = await create_groups.execute(
-      "SELECT * FROM create_groups WHERE id = ? AND admin_id = ?",
-      [groupId, user_id]
+      "SELECT * FROM create_groups WHERE id = ?",
+      [groupId]
     );
 
     if (groupRows.length === 0) {
       return res.status(404).json({ error: "Group not found" });
     }
-    // console.log("Group ID:", groupId, "User ID:", user_id);
 
- // ✅ Check if user is either group member OR group admin
-const [memberRows] = await group_members.execute(
-  "SELECT * FROM group_members WHERE user_id = ? AND group_id = ?",
-  [user_id, groupId]
-);
+    // ✅ Check if user is either group member OR group admin
+    const [memberRows] = await group_members.execute(
+      "SELECT * FROM group_members WHERE user_id = ? AND group_id = ?",
+      [user_id, groupId]
+    );
 
-const [adminRows] = await create_groups.execute(
-  "SELECT * FROM create_groups WHERE id = ? AND admin_id = ?",
-  [groupId, user_id]
-);
+    const [adminRows] = await create_groups.execute(
+      "SELECT * FROM create_groups WHERE id = ? AND admin_id = ?",
+      [groupId, user_id]
+    );
 
-if (memberRows.length === 0 && adminRows.length === 0) {
-  return res.status(403).json({ message: "You are not a member of this group" });
-}
+    if (memberRows.length === 0 && adminRows.length === 0) {
+      return res
+        .status(403)
+        .json({ message: "You are not a member of this group" });
+    }
 
-console.log("Membership verified for user:", user_id, "in group:", groupId);
+    console.log("Membership verified for user:", user_id, "in group:", groupId);
 
     // ✅ Get all members of the group (CLEAN QUERY)
-const [members] = await group_members.execute(
-  `
+    const [members] = await group_members.execute(
+      `
   -- Admin
   SELECT 
       u.id AS user_id,
@@ -234,11 +233,8 @@ const [members] = await group_members.execute(
 
   ORDER BY member_role DESC, status ASC
   `,
-  [groupId, groupId]
-);
-
-
-
+      [groupId, groupId]
+    );
 
     // console.log("Group members retrieved:", members);
     res.json({

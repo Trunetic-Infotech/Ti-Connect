@@ -78,15 +78,7 @@ console.log(GroupDetails,"GroupDetails");
     <BlurView intensity={70} tint="light" className="px-5 py-3">
       <View className="flex-row items-center justify-between">
         {/* Left: Back + Group Info */}
-        <View className="flex-row items-center gap-3">
-          <TouchableOpacity
-            onPress={() => router.back()}
-            activeOpacity={0.7}
-            className="p-2 rounded-full bg-white/25"
-          >
-            <Ionicons name="arrow-back" size={20} color="white" />
-          </TouchableOpacity>
-
+        <View className="flex-row items-center gap-3" onPress={() => router.back()}>
           <TouchableOpacity
             onPress={goToGroupProfile}
             activeOpacity={0.85}

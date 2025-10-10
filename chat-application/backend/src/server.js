@@ -7,6 +7,7 @@ import AuthRoutes from "./routes/UserRoutes/AuthRoutes.js";
 import MessageRoutes from "./routes/messageRoutes/messageRoutes.js"
 import { app, server } from "../src/utils/socket/socket.js";
 import groupRoutes from "./routes/messageRoutes/groupeRoutes.js";
+import groupMessageRoutes from "./routes/messageRoutes/groupMessageRoutes.js";
 import cookieParser from "cookie-parser";
 
 dotenv.config();
@@ -35,6 +36,7 @@ app.get("/", (req, res) => {
 app.use("/api/v1", AuthRoutes);
 app.use("/api/v1", MessageRoutes);
 app.use("/api/v1", groupRoutes);
+app.use("/api/v1", groupMessageRoutes);
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

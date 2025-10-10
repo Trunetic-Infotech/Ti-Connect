@@ -255,6 +255,7 @@ const Chats = () => {
           text: user.lastMessage ?? "",
           isOnline: user.status ?? "",
           lastSeen: user.last_seen_at ?? "none",
+          
         }));
         setChatsList(mappedChats);
         dispatch(setOnlineUsers(response.data.data.users));
@@ -351,6 +352,7 @@ const Chats = () => {
                   router.push({
                     pathname: "/screens/Message",
                     params: { user: JSON.stringify(chat) },
+                    type: "single",
                   })
                 }
                 activeOpacity={0.9}

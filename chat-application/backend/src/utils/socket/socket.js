@@ -3,7 +3,8 @@ import { Server } from "socket.io";
 import http from "http";
 import express from "express";
 import users from "../../config/Database.js"; // ✅ use single DB instance
-
+import group_members from "../../config/Database.js";
+import create_groups from "../../config/Database.js";
 // Map to keep track of online users: { userId: socketId }
 const userSocketMap = {};
 
@@ -114,63 +115,95 @@ io.on("connection", (socket) => {
     }
   });
 
+  socket.on("joinGroup", async ({ userId }) => {
+    try {
+      const joinedGroups = [];
 
-  
- socket.on("joined_users", async ({ userId }) => {
-      try {
-        const [groups] = await group_members.execute(
-          "SELECT group_id FROM group_members WHERE user_id = ?",
-          [userId]
+      // 1️⃣ Get all groups the user belongs to
+      const [groups] = await group_members.execute(
+        `
+  SELECT g.id AS group_id, gm.Block_Group, gm.Leave_Group, gm.role
+  FROM group_members gm
+  JOIN create_groups g ON gm.group_id = g.id
+  WHERE gm.user_id = ?
+
+  UNION
+
+  SELECT g.id AS group_id, NULL AS Block_Group, NULL AS Leave_Group, 'admin' AS role
+  FROM create_groups g
+  WHERE g.admin_id = ?
+  `,
+        [userId, userId]
+      );
+
+      if (groups.length === 0) {
+        return socket.emit("error_join_group", {
+          error: "No groups found for user",
+        });
+      }
+      // console.log("User joining groups:", userId);
+
+      // 2️⃣ Loop through each group and validate membership
+      const uniqueGroupIds = new Set();
+
+      for (let g of groups) {
+        if (uniqueGroupIds.has(g.group_id)) continue; // 🔒 Skip duplicates
+        uniqueGroupIds.add(g.group_id);
+
+        const [groupInfo] = await create_groups.execute(
+          "SELECT admin_id FROM create_groups WHERE id = ?",
+          [g.group_id]
         );
 
-        groups.forEach((g) => {
-          socket.join(`group_${g.group_id}`);
-          console.log(`✅ User ${userId} joined room group_${g.group_id}`);
-        });
+        if (!groupInfo.length) continue;
 
-        socket.emit("joined_groups", { groups: groups.map((g) => g.group_id) });
-      } catch (error) {
-        console.error("❌ Error joining groups:", error);
+        const isAdmin = groupInfo[0].admin_id === userId || g.role === "admin";
+        const isBlocked = g.Block_Group === "block";
+        const hasLeft = g.Leave_Group === 1;
+
+        if (isBlocked || hasLeft) continue;
+
+        socket.join(`group_${g.group_id}`);
+        console.log(`✅ User ${userId} joined room group_${g.group_id}`);
+        joinedGroups.push(g.group_id);
       }
-    });
 
-    socket.on("disconnect", () => {
-      console.log("❌ Client disconnected:", socket.id);
-    });
+      // 3️⃣ Emit back the joined groups
+      socket.emit("joinGroup", { groups: joinedGroups });
+    } catch (error) {
+      console.error("❌ Error joining groups:", error);
+      socket.emit("error_join_group", { error: "Something went wrong" });
+    }
+  });
 
-  // socket.on("disconnect", async  () => {
-  //    if (userId) {
-  //     delete userSocketMap[userId];
-
-  //     // Update DB: mark inactive
-  //     await users.execute(
-  //       "UPDATE users SET status = 'inactive', last_seen_at = NOW() WHERE id = ?",
-  //       [userId]
-  //     );
-
-  //        // Broadcast offline status
-  //   io.emit("status_update", { userId, status: "inactive" });
-
-  //     console.log("User disconnected:", userId);
-  //   }
-  // });
-  socket.on("disconnect", async () => {
-  console.log("❌ Client disconnected:", socket.id);
-
-  if (userId) {
-    delete userSocketMap[userId];
-
-    // Update DB: mark inactive
-    await users.execute(
-      "UPDATE users SET status = 'inactive', last_seen_at = NOW() WHERE id = ?",
-      [userId]
-    );
-
-    // Broadcast offline status
-    io.emit("status_update", { userId, status: "inactive" });
-  }
+socket.on("sendGroupMessage", async ({ userId, groupId, text }) => {
+  // Save message to DB...
+  io.to(`group_${groupId}`).emit("groupNewMessage", {
+    id: newMessageId,
+    groupId,
+    sender_id: userId,
+    message: text,
+    created_at: new Date(),
+  });
 });
 
+
+  socket.on("disconnect", async () => {
+    console.log("❌ Client disconnected:", socket.id);
+
+    if (userId) {
+      delete userSocketMap[userId];
+
+      // Update DB: mark inactive
+      await users.execute(
+        "UPDATE users SET status = 'inactive', last_seen_at = NOW() WHERE id = ?",
+        [userId]
+      );
+
+      // Broadcast offline status
+      io.emit("status_update", { userId, status: "inactive" });
+    }
+  });
 });
 
 // Helper function to get a user's socket ID

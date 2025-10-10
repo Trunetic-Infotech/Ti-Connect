@@ -43,7 +43,7 @@ const fileFilter = (req, file, cb) => {
   // Audio
   "audio/mpeg", "audio/mp3", "audio/wav", "audio/ogg", "audio/webm",
   // Documents
-  "application/pdf", "application/msword",
+  "application/pdf", "application/msword","application/jpeg",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   "application/vnd.ms-excel",
   "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -20,7 +20,9 @@ import BlockedOverlay from "../components/BlockContact/BlockedOverlay";
 import SelectedMessagesActionBar from "../components/SelectedMessagesActionBar/SelectedMessagesActionBar";
 import MessagesList from "../components/MessagesList/MessagesList";
 
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import * as SecureStore from "expo-secure-store";
+import { getSocket } from "../../services/socketService";
+import { useSelector } from "react-redux";
 
 const GroupMessage = () => {
   // ------------------- STATE -------------------
@@ -31,10 +33,12 @@ const GroupMessage = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [hasLeftGroup, setHasLeftGroup] = useState(false);
   const [wallpaperUri, setWallpaperUri] = useState(null);
-
+  const [type, setType] = useState("group"); // "single" or "group"
   const router = useRouter();
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
+
+  const currentUserId = useSelector((state) => state.auth.user.id);
 
   const params = useLocalSearchParams();
   let GroupDetails = params.groupedata;
@@ -48,30 +52,88 @@ const GroupMessage = () => {
     console.log("Failed to parse GroupDetails:", e);
   }
 
+  //   // ------------------ Fetch Group messages ------------------
+
+  const fetchGroupMessages = async () => {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) {
+      Alert.alert("please login again");
+      return router.replace("/screens/home");
+    }
+    try {
+      const response = await axios.get(
+        `${process.env.EXPO_API_URL}/get/group/messages`,
+        {
+          params: { groupId: GroupDetails.id },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      // console.log("GroupData", response.data);
+      if (response.data.success) {
+        const messages = response.data.messages.map((msg) => ({
+          ...msg,
+          isSender: msg.sender_id === currentUserId, // currentUserId = logged-in user's id
+        }));
+        setMessages(messages);
+        setType("group");
+        // setIsBlocked(response.data.isBlocked);
+        // setHasLeftGroup(response.data.hasLeftGroup);
+      } else {
+        Alert.alert(
+          "Error",
+          response.data.message || "Failed to fetch messages"
+        );
+      }
+    } catch (error) {
+      console.error("Error fetching messages:", error);
+      Alert.alert("Error", error.message || "Failed to fetch messages");
+    }
+  };
+
   // ------------------- LOAD INITIAL DATA -------------------
   useEffect(() => {
-    Animated.timing(fadeAnim, { toValue: 1, duration: 300, useNativeDriver: true }).start();
+    Animated.timing(fadeAnim, {
+      toValue: 1,
+      duration: 300,
+      useNativeDriver: true,
+    }).start();
   }, []);
 
   useEffect(() => {
     (async () => {
-      const uri = await AsyncStorage.getItem("chat_wallpaper");
+      const uri = await SecureStore.getItem("chat_wallpaper");
       setWallpaperUri(uri || null);
     })();
   }, []);
 
   // Fetch messages from backend
-  useEffect(() => {
-    const fetchMessages = async () => {
-      try {
-        const res = await axios.get(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`);
-        setMessages(res.data.messages || []);
-      } catch (err) {
-        console.error("Error fetching messages:", err);
-      }
-    };
-    if (GroupDetails?.id) fetchMessages();
-  }, [GroupDetails]);
+useEffect(() => {
+  const fetchMessages = async () => {
+    await fetchGroupMessages();
+  };
+  fetchMessages();
+
+  const socket = getSocket();
+
+  const handleNewMessage = (msg) => {
+    if (msg.groupId === GroupDetails.id) {
+      setMessages((prev) => {
+        if (prev.some(m => m.id === msg.id)) return prev; // avoid duplicates
+        return [msg, ...prev];
+      });
+    }
+  };
+
+  // Join group once
+  // socket.emit("joinGroup", { userId: currentUserId, groupId: GroupDetails.id });
+
+  socket.on("groupNewMessage", handleNewMessage);
+
+  return () => {
+    socket.off("groupNewMessage", handleNewMessage);
+  };
+}, [currentUserId, GroupDetails.id]);
+
 
   // ------------------- FUNCTIONS -------------------
   const toggleMessageSelection = (id) => {
@@ -83,22 +145,30 @@ const GroupMessage = () => {
   const handleLongPress = (item) => toggleMessageSelection(item.id);
 
   const deleteSelectedMessages = async () => {
-    Alert.alert("Delete Messages", `Delete ${selectedMessages.length} message(s)?`, [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Delete",
-        style: "destructive",
-        onPress: async () => {
-          try {
-            await axios.delete(`${process.env.EXPO_API_URL}/messages`, { data: { ids: selectedMessages } });
-            setMessages((prev) => prev.filter((msg) => !selectedMessages.includes(msg.id)));
-            setSelectedMessages([]);
-          } catch (err) {
-            console.error("Delete failed:", err);
-          }
+    Alert.alert(
+      "Delete Messages",
+      `Delete ${selectedMessages.length} message(s)?`,
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await axios.delete(`${process.env.EXPO_API_URL}/messages`, {
+                data: { ids: selectedMessages },
+              });
+              setMessages((prev) =>
+                prev.filter((msg) => !selectedMessages.includes(msg.id))
+              );
+              setSelectedMessages([]);
+            } catch (err) {
+              console.error("Delete failed:", err);
+            }
+          },
         },
-      },
-    ]);
+      ]
+    );
   };
 
   const cancelSelection = () => {
@@ -122,18 +192,30 @@ const GroupMessage = () => {
     try {
       if (editingMessageId && message.type === "text") {
         // Update existing message
-        await axios.put(`${process.env.EXPO_API_URL}/messages/${editingMessageId}`, { text: message.text });
+        await axios.put(
+          `${process.env.EXPO_API_URL}/messages/${editingMessageId}`,
+          { text: message.text }
+        );
         setMessages((prev) =>
-          prev.map((msg) => (msg.id === editingMessageId ? { ...msg, text: message.text } : msg))
+          prev.map((msg) =>
+            msg.id === editingMessageId ? { ...msg, text: message.text } : msg
+          )
         );
         setEditingMessageId(null);
         setMessageText("");
       } else {
         // Send new message
-        const res = await axios.post(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`, message);
+        const res = await axios.post(
+          `${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`,
+          message
+        );
         setMessages((prev) => [res.data, ...prev]);
 
-        setTimeout(() => flatListRef.current?.scrollToOffset({ offset: 0, animated: true }), 100);
+        setTimeout(
+          () =>
+            flatListRef.current?.scrollToOffset({ offset: 0, animated: true }),
+          100
+        );
         if (message.type === "text") setMessageText("");
       }
     } catch (err) {
@@ -143,7 +225,9 @@ const GroupMessage = () => {
 
   const clearChat = async () => {
     try {
-      await axios.delete(`${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`);
+      await axios.delete(
+        `${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`
+      );
       setMessages([]);
     } catch (err) {
       console.error("Clear chat failed:", err);
@@ -153,16 +237,19 @@ const GroupMessage = () => {
   const handleWallpaperChange = async (uri) => {
     if (uri) {
       setWallpaperUri(uri);
-      await AsyncStorage.setItem("chat_wallpaper", uri);
+      await SecureStore.setItem("chat_wallpaper", uri);
     } else {
       setWallpaperUri(null);
-      await AsyncStorage.removeItem("chat_wallpaper");
+      await SecureStore.removeItem("chat_wallpaper");
     }
   };
 
   // ------------------- RENDER -------------------
   return (
-    <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : "height"} style={{ flex: 1 }}>
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={{ flex: 1 }}
+    >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
           <GroupChatHeader
@@ -187,8 +274,13 @@ const GroupMessage = () => {
               <Text className="text-center text-gray-600 text-lg">
                 You have left this group. You cannot send or receive messages.
               </Text>
-              <TouchableOpacity onPress={() => router.back()} className="mt-4 px-5 py-2 bg-indigo-600 rounded-full">
-                <Text className="text-white font-semibold text-center">Back to Groups</Text>
+              <TouchableOpacity
+                onPress={() => router.back()}
+                className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
+              >
+                <Text className="text-white font-semibold text-center">
+                  Back to Groups
+                </Text>
               </TouchableOpacity>
             </View>
           ) : isBlocked ? (
@@ -227,6 +319,7 @@ const GroupMessage = () => {
                 fadeAnim={fadeAnim}
                 flatListRef={flatListRef}
                 wallpaperUri={wallpaperUri}
+                type={type}
               />
 
               <SendMessageBar
@@ -235,6 +328,9 @@ const GroupMessage = () => {
                 editingMessageId={editingMessageId}
                 cancelEditing={cancelSelection}
                 onSend={handleSend}
+                handleGetMessage={fetchGroupMessages}
+                GroupDetails={GroupDetails}
+                type={type}
               />
             </>
           )}

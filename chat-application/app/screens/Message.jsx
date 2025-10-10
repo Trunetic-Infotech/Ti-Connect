@@ -25,6 +25,7 @@ import * as SecureStore from "expo-secure-store";
 
 import axios from "axios";
 import { useSelector } from "react-redux";
+import { set } from 'date-fns';
 
 const Message = () => {
   // ------------------ States ------------------
@@ -34,10 +35,12 @@ const Message = () => {
   const [messageText, setMessageText] = useState(""); // Current input text
   const [isBlocked, setIsBlocked] = useState(false); // Blocked status
   const [wallpaperUri, setWallpaperUri] = useState(null); // Chat wallpaper
-  
+  const [type, setType] = useState("single"); 
 
   // ------------------ Navigation & Animations ------------------
   const params = useLocalSearchParams();
+  // console.log("PARAMS", params);
+
   //  console.log("RAW DATA",params);
 
   // Safe parsing to avoid "Unexpected character: u"
@@ -86,6 +89,9 @@ const Message = () => {
       if (response.data.success) {
         const messages = response.data.messages || [];
         setMessages(messages);
+        setType("single");  // set chat type to single
+        // setIsBlocked(response.data.isBlocked);
+        // setHasLeftGroup(response.data.hasLeftGroup);
       } else {
         Alert.alert(
           "Error",
@@ -94,7 +100,7 @@ const Message = () => {
       }
     } catch (error) {
       console.error("Error fetching messages:", error);
-      Alert.alert("Error", "Something went wrong while fetching messages");
+      Alert.alert("Error", error.message || "Failed to fetch messages");
     }
   };
 
@@ -118,8 +124,8 @@ const Message = () => {
   };
 
   useEffect(()=>{
-    console.log("This is me",me);
-    console.log("This is user",user);
+    // console.log("This is me",me);
+    // console.log("This is user",user);
     
   },[user,me])
 
@@ -194,7 +200,7 @@ useEffect(() => {
     console.log("📩 Connected to socket", socket.id);
 
     const handleNewMessage = (msg) => {
-      console.log("📩 Received socket message:", msg);
+      // console.log("📩 Received socket message:", msg);
 
       // Use correct property names (snake_case)
       if (
@@ -266,6 +272,7 @@ useEffect(() => {
 
               {/* 🔹 Messages List */}
               <MessagesList
+              type={type}
                 messages={messages}
                 user={user}
                 onLongPress={handleLongPress}
@@ -277,6 +284,7 @@ useEffect(() => {
 
               {/* 🔹 Message Input Bar */}
               <SendMessageBar
+               type={type}
                 messageText={messageText}
                 setMessageText={setMessageText}
                 editingMessageId={editingMessageId}

@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 let socket = null;
 
 export const connectSocket = (userId) => {
-  socket = io("http://192.168.1.43:5000", {
+  socket = io("http://192.168.1.48:5000", {
     query: {
       id: userId,
     },
@@ -14,6 +14,8 @@ export const connectSocket = (userId) => {
 
     // Mark user online on the backend
     socket.emit("user_online", userId);
+
+     socket.emit("joinGroup", { userId });
   });
 
   return socket;

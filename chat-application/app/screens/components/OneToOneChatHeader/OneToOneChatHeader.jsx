@@ -77,15 +77,10 @@ const OneToOneChatHeader = ({
         <BlurView intensity={60} tint="light" className="px-4 py-3.5">
           <View className="flex-row items-center justify-between">
             {/* Left: Back + User Info */}
-            <View className="flex-row items-center space-x-3 gap-2">
-              <TouchableOpacity
-                onPress={() => router.back()}
-                activeOpacity={0.7}
-                className="p-2 rounded-full bg-white/20"
-              >
-                <Ionicons name="arrow-back" size={20} color="white" />
-              </TouchableOpacity>
-
+            <View
+              className="flex-row items-center space-x-3 gap-2"
+              onPress={() => router.back()}
+            >
               <View className="flex-row items-center">
                 <Image
                   source={
@@ -97,11 +92,12 @@ const OneToOneChatHeader = ({
                 />
 
                 <TouchableOpacity
-                  onPress={() => router.push({
-                    pathname: "/screens/pages/ProfileEdit",
-                    params: { user: JSON.stringify(user) },
-
-                  })}
+                  onPress={() =>
+                    router.push({
+                      pathname: "/screens/pages/ProfileEdit",
+                      params: { user: JSON.stringify(user) },
+                    })
+                  }
                 >
                   <View>
                     <Text className="text-white font-semibold text-lg leading-tight">

@@ -15,6 +15,7 @@ import { useRouter } from "expo-router";
 import logoImg from "../../../assets/images/Chat-Logo.png";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
+import { getSocket } from "@/app/services/socketService";
 
 const Groups = () => {
   const [search, setSearch] = useState("");
@@ -33,11 +34,14 @@ const Groups = () => {
     }
 
     try {
-      const response = await axios.get(`${process.env.EXPO_API_URL}/groups/list`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const response = await axios.get(
+        `${process.env.EXPO_API_URL}/groups/list`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
 
-      console.log("Groups list:", response.data);
+      // console.log("Groups list:", response.data);
 
       if (response.data?.success) {
         // Map API data to frontend-friendly format
@@ -73,13 +77,40 @@ const Groups = () => {
   const confirmDelete = (id) => {
     Alert.alert("Delete Group", "Are you sure you want to delete this group?", [
       { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: () => handleDeleteGroup(id) },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => handleDeleteGroup(id),
+      },
     ]);
   };
 
-  useEffect(() => {
+useEffect(() => {
+  // Initial fetch
+  fetchGroupsList();
+
+  const socket = getSocket();
+
+  // 🔔 Listen for server events (group created, joined, left, updated, etc.)
+  socket.on("groupUpdated", () => {
+    fetchGroupsList(); // refresh when server notifies
+  });
+
+  socket.on("groupCreated", () => {
     fetchGroupsList();
-  }, []);
+  });
+
+  socket.on("groupDeleted", () => {
+    fetchGroupsList();
+  });
+
+  return () => {
+    socket.off("groupUpdated");
+    socket.off("groupCreated");
+    socket.off("groupDeleted");
+  };
+}, []);
+
 
   return (
     <SafeAreaView className="flex-1 bg-[#f1f5f9]">
@@ -121,7 +152,9 @@ const Groups = () => {
             }`}
             activeOpacity={0.9}
           >
-            <Text className="text-center text-white font-semibold">{item.title}</Text>
+            <Text className="text-center text-white font-semibold">
+              {item.title}
+            </Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -130,7 +163,9 @@ const Groups = () => {
       {filteredGroups.length === 0 && (
         <View className="flex-1 items-center justify-center mt-20 px-6">
           <FontAwesome5 name="users-slash" size={64} color="#9ca3af" />
-          <Text className="text-xl font-bold text-gray-700 mt-4">No Groups Found</Text>
+          <Text className="text-xl font-bold text-gray-700 mt-4">
+            No Groups Found
+          </Text>
           <Text className="text-sm text-gray-500 mt-2 text-center">
             Try creating a new group or adjust your search.
           </Text>
@@ -139,14 +174,19 @@ const Groups = () => {
             onPress={() => router.push("/screens/pages/CreateGroup")}
             className="mt-6 bg-indigo-600 px-6 py-3 rounded-full shadow-md"
           >
-            <Text className="text-white font-semibold text-base">Create New Group</Text>
+            <Text className="text-white font-semibold text-base">
+              Create New Group
+            </Text>
           </TouchableOpacity>
         </View>
       )}
 
       {/* Groups List */}
       {selectedTab === "Groups" && filteredGroups.length > 0 && (
-        <ScrollView className="px-4" contentContainerStyle={{ paddingBottom: 120 }}>
+        <ScrollView
+          className="px-4"
+          contentContainerStyle={{ paddingBottom: 120 }}
+        >
           <View className="space-y-4 gap-3">
             {filteredGroups.map((group) => (
               <TouchableOpacity
@@ -174,13 +214,20 @@ const Groups = () => {
 
                   <View>
                     <Text className="text-lg font-semibold">{group.name}</Text>
-                    <Text className="text-gray-800">{group.text}</Text>
+                    <Text
+                      className="text-gray-800"
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
+                      style={{ flexWrap: "wrap", maxWidth: 200 }}
+                    >
+                      {group.text}
+                    </Text>
                     <Text className="text-sm text-gray-500">
-                      {group.active_members} members
+                    last message  {new Date(group.time).toLocaleString()} 
                     </Text>
                   </View>
                 </View>
-                <Text className="text-xs text-gray-400">{group.time}</Text>
+                {/* <Text className="text-xs text-gray-400"></Text> */}
               </TouchableOpacity>
             ))}
           </View>

@@ -72,6 +72,112 @@
 // export default ContactsModal;
 
 // components/Contacts/Contacts.jsx
+// import React, { useEffect, useState } from "react";
+// import {
+//   View,
+//   Text,
+//   FlatList,
+//   TouchableOpacity,
+//   Modal,
+//   Image,
+// } from "react-native";
+// import * as Contacts from "expo-contacts";
+
+// const ContactsModal = ({ visible, onClose, onSend }) => {
+//   const [contacts, setContacts] = useState([]);
+
+//   useEffect(() => {
+//     if (visible) {
+//       (async () => {
+//         const { status } = await Contacts.requestPermissionsAsync();
+//         if (status === "granted") {
+//           const { data } = await Contacts.getContactsAsync({
+//             fields: [Contacts.Fields.PhoneNumbers, Contacts.Fields.Emails],
+//           });
+//           setContacts(data);
+//         }
+//       })();
+//     }
+//   }, [visible]);
+
+//   const handleSelectContact = (contact) => {
+//     const contactMessage = {
+//       type: "contact",
+//       name: contact.name,
+//       phone: contact.phoneNumbers?.[0]?.number || "No number",
+//       email: contact.emails?.[0]?.email || "No email",
+//     };
+//     onSend(contactMessage);
+//     onClose();
+//   };
+
+//   return (
+//     <Modal visible={visible} animationType="slide" transparent>
+//       <View className="flex-1 bg-black/40 justify-end">
+//         <View className="bg-white rounded-t-3xl p-4 max-h-[70%]">
+//           {/* Header */}
+//           <Text className="text-lg font-bold text-center text-gray-800 mb-4">
+//             Select Contact
+//           </Text>
+
+//           {/* Horizontal List */}
+//           <FlatList
+//             data={contacts}
+//             horizontal
+//             showsHorizontalScrollIndicator={false}
+//             keyExtractor={(item) => item.id}
+//             renderItem={({ item }) => (
+//               <TouchableOpacity
+//                 className="bg-blue-500/90 rounded-2xl p-4 m-2 w-36 items-center shadow-md"
+//                 onPress={() => handleSelectContact(item)}
+//               >
+//                 {/* Avatar Placeholder */}
+//                 <View className="w-16 h-16 rounded-full bg-white/20 mb-2 items-center justify-center">
+//                   <Text className="text-lg font-bold text-white">
+//                     {item.name?.[0] || "?"}
+//                   </Text>
+//                 </View>
+//                 {/* Name */}
+//                 <Text
+//                   className="text-sm font-semibold text-white text-center"
+//                   numberOfLines={1}
+//                 >
+//                   {item.name}
+//                 </Text>
+//                 {/* Phone */}
+//                 {item.phoneNumbers && (
+//                   <Text
+//                     className="text-xs text-white/80 text-center mt-1"
+//                     numberOfLines={1}
+//                   >
+//                     {item.phoneNumbers[0]?.number}
+//                   </Text>
+//                 )}
+//               </TouchableOpacity>
+//             )}
+//           />
+
+//           {/* Close Button */}
+//           <TouchableOpacity
+//             className="mt-4 bg-red-500 py-3 rounded-2xl"
+//             onPress={onClose}
+//           >
+//             <Text className="text-white text-center font-semibold text-base">
+//               Close
+//             </Text>
+//           </TouchableOpacity>
+//         </View>
+//       </View>
+//     </Modal>
+//   );
+// };
+
+// export default ContactsModal;
+
+
+
+
+// components/Contacts/ContactsModal.jsx
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -79,7 +185,6 @@ import {
   FlatList,
   TouchableOpacity,
   Modal,
-  Image,
 } from "react-native";
 import * as Contacts from "expo-contacts";
 
@@ -101,50 +206,43 @@ const ContactsModal = ({ visible, onClose, onSend }) => {
   }, [visible]);
 
   const handleSelectContact = (contact) => {
-    const contactMessage = {
+    onSend?.({
       type: "contact",
       name: contact.name,
       phone: contact.phoneNumbers?.[0]?.number || "No number",
       email: contact.emails?.[0]?.email || "No email",
-    };
-    onSend(contactMessage);
-    onClose();
+    });
+    onClose?.();
   };
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
       <View className="flex-1 bg-black/40 justify-end">
         <View className="bg-white rounded-t-3xl p-4 max-h-[70%]">
-          {/* Header */}
           <Text className="text-lg font-bold text-center text-gray-800 mb-4">
             Select Contact
           </Text>
 
-          {/* Horizontal List */}
           <FlatList
             data={contacts}
             horizontal
-            showsHorizontalScrollIndicator={false}
             keyExtractor={(item) => item.id}
             renderItem={({ item }) => (
               <TouchableOpacity
                 className="bg-blue-500/90 rounded-2xl p-4 m-2 w-36 items-center shadow-md"
                 onPress={() => handleSelectContact(item)}
               >
-                {/* Avatar Placeholder */}
                 <View className="w-16 h-16 rounded-full bg-white/20 mb-2 items-center justify-center">
                   <Text className="text-lg font-bold text-white">
                     {item.name?.[0] || "?"}
                   </Text>
                 </View>
-                {/* Name */}
                 <Text
                   className="text-sm font-semibold text-white text-center"
                   numberOfLines={1}
                 >
                   {item.name}
                 </Text>
-                {/* Phone */}
                 {item.phoneNumbers && (
                   <Text
                     className="text-xs text-white/80 text-center mt-1"
@@ -157,7 +255,6 @@ const ContactsModal = ({ visible, onClose, onSend }) => {
             )}
           />
 
-          {/* Close Button */}
           <TouchableOpacity
             className="mt-4 bg-red-500 py-3 rounded-2xl"
             onPress={onClose}
@@ -173,3 +270,28 @@ const ContactsModal = ({ visible, onClose, onSend }) => {
 };
 
 export default ContactsModal;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
