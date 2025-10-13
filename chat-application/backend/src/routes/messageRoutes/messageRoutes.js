@@ -9,7 +9,7 @@ const router = express.Router();
 
 router.post("/messages", isAuthenticated ,SendMessage);
 router.get("/get/messages",isAuthenticated, GetMessages);
-router.put("/messages/:id",isAuthenticated, UpdateMessage);
+router.put("/messages/:messageId",isAuthenticated, UpdateMessage);
 router.delete("/messages/:messageId",isAuthenticated, DeleteMessage);
 router.post("/messages/upload",isAuthenticated, upload.array("media_url", 10), UploadMedia);
 

@@ -37,6 +37,8 @@ app.use("/api/v1", AuthRoutes);
 app.use("/api/v1", MessageRoutes);
 app.use("/api/v1", groupRoutes);
 app.use("/api/v1", groupMessageRoutes);
+
+
 server.listen(PORT, () => {
   console.log(`🚀 Server running at http://localhost:${PORT}`);
 });

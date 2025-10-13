@@ -15,7 +15,7 @@ import { useRouter } from "expo-router";
 import logoImg from "../../../assets/images/Chat-Logo.png";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
-import { getSocket } from "@/app/services/socketService";
+import { getSocket } from "../../services/socketService";
 
 const Groups = () => {
   const [search, setSearch] = useState("");

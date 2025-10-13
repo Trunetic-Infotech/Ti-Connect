@@ -252,6 +252,7 @@ import { Video } from "expo-av";
 import VoicePlayer from "../VoicePlayer/VoicePlayer";
 import ContactBubble from "../ContactBubble/ContactBubble";
 import { format } from "date-fns";
+import DocumentViewer from "../DocumentViewer/DocumentViewer";
 
 const MessagesList = ({
   type, // "single" or "group"
@@ -386,10 +387,10 @@ const MessagesList = ({
             ) : item.message_type === "audio" ? (
               <TouchableOpacity
                 onPress={() =>
-                  setSelectedMedia({ type: "audio", uri: item.media_url })
+                  setSelectedMedia({ type: "audio", uri: item.media_url , duration: item.duration })
                 }
               >
-                <VoicePlayer uri={item.media_url} duration={item.duration} />
+                <VoicePlayer uri={item.media_url} duration={item.duration || 0} />
               </TouchableOpacity>
             ) : item.message_type === "contact" ? (
               <ContactBubble message={item} isOwnMessage={isMe} />
@@ -399,12 +400,7 @@ const MessagesList = ({
                   setSelectedMedia({ type: "document", uri: item.media_url })
                 }
               >
-                <View>
-                  <Text className="text-gray-800 underline">
-                    {item.media_filename || "View Document"}
-                  </Text>
-                </View>
-                {/* <DocumentViewer uri={item.media_url} /> */}
+                <DocumentViewer uri={item.media_url} />
               </TouchableOpacity>
             ) : item.message_type === "file" ? (
               <TouchableOpacity

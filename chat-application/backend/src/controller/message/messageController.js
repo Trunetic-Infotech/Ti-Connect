@@ -9,7 +9,7 @@ export const SendMessage = async (req, res) => {
     console.log('====================================');
     console.log(req.body);
     console.log('====================================');
-    const { receiver_id, message, message_type = "text", media_url } = req.body;
+    const { receiver_id, message, message_type = "text", media_url,duration ,is_read } = req.body;
 
     // console.log("data",sender_id);
 
@@ -25,8 +25,8 @@ export const SendMessage = async (req, res) => {
 
     // Save message to database
     const [result] = await chat_messages.execute(
-      "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type, media_url) VALUES (?,?, ?, ?, ?)",
-      [sender_id, receiver_id, message, message_type, media_url || null]
+      "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type, media_url,duration ,is_read) VALUES (?,?, ?, ?, ? , ? , ?)",
+      [sender_id, receiver_id, message, message_type, media_url || null, duration || null, is_read || 0]
     );
 
     const newMessage = {
@@ -36,6 +36,8 @@ export const SendMessage = async (req, res) => {
       message,
       message_type,
       media_url: media_url || null,
+      duration: duration || null,
+      is_read: 0,
       created_at: new Date(),
     };
 

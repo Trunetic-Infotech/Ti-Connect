@@ -1,110 +1,57 @@
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import {
   View,
-  Text,
   KeyboardAvoidingView,
   Platform,
   TouchableWithoutFeedback,
   Keyboard,
-  Animated,
   Alert,
+  Animated,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { useRouter, useLocalSearchParams } from "expo-router";
+import * as SecureStore from "expo-secure-store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useSelector } from "react-redux";
+import axios from "axios";
+
 import { getSocket } from "../services/socketService";
 
-import dp from "../../assets/images/dp.jpg";
-
+import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
+import MessagesList from "../screens/components/MessagesList/MessagesList";
 import SendMessageBar from "../screens/components/SenderMessage/SendMessageBar";
 import BlockedOverlay from "../screens/components/BlockContact/BlockedOverlay";
 import SelectedMessagesActionBar from "../screens/components/SelectedMessagesActionBar/SelectedMessagesActionBar";
-import MessagesList from "../screens/components/MessagesList/MessagesList";
-import AsyncStorage from "@react-native-async-storage/async-storage";
-import OneToOneChatHeader from "./components/OneToOneChatHeader/OneToOneChatHeader";
-import * as SecureStore from "expo-secure-store";
-
-import axios from "axios";
-import { useSelector } from "react-redux";
-import { set } from 'date-fns';
 
 const Message = () => {
-  // ------------------ States ------------------
-  const [messages, setMessages] = useState([]); // Chat messages
-  const [selectedMessages, setSelectedMessages] = useState([]); // Selected messages for edit/delete
-  const [editingMessageId, setEditingMessageId] = useState(null); // Message being edited
-  const [messageText, setMessageText] = useState(""); // Current input text
-  const [isBlocked, setIsBlocked] = useState(false); // Blocked status
-  const [wallpaperUri, setWallpaperUri] = useState(null); // Chat wallpaper
-  const [type, setType] = useState("single"); 
-
-  // ------------------ Navigation & Animations ------------------
   const params = useLocalSearchParams();
-  // console.log("PARAMS", params);
-
-  //  console.log("RAW DATA",params);
-
-  // Safe parsing to avoid "Unexpected character: u"
-  let user = params.user;
-  const [currentChatUser, setCurrentChatUser] = useState(null);
-
-  let me = useSelector((state) => state.auth.user);
-  useEffect(() => {
-    console.log("This is the uiser", user);
-    
-    setCurrentChatUser(user);
-  }, [user]);
-
-  try {
-    if (typeof user === "string") {
-      user = JSON.parse(user);
-    }
-  } catch (e) {
-    console.warn("Failed to parse user param:", e);
-  }
-
-  // console.log("conatct Data",user);
-
   const router = useRouter();
+  const me = useSelector((state) => state.auth.user);
+
+  const [currentChatUser, setCurrentChatUser] = useState(null);
+  const [messages, setMessages] = useState([]);
+  const [selectedMessages, setSelectedMessages] = useState([]);
+  const [editingMessageId, setEditingMessageId] = useState(null);
+  const [messageText, setMessageText] = useState("");
+  const [isBlocked, setIsBlocked] = useState(false);
+  const [wallpaperUri, setWallpaperUri] = useState(null);
+  const [type, setType] = useState("single");
+
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
-  //   // ------------------ Fetch messages ------------------
-  const handleGetMessage = async () => {
+  // ------------------ Parse user param ------------------
+  useEffect(() => {
+    let userParam = params.user;
     try {
-      const token = await SecureStore.getItemAsync("token");
-      if (!token) {
-        Alert.alert("Error", "No send Id token found");
-        return;
-      }
-
-      const response = await axios.get(
-        `${process.env.EXPO_API_URL}/get/messages`,
-        {
-          params: { receiver_id: user.id }, // ✅ query params go here
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-      // console.log("dataMessage",response.data);
-
-      if (response.data.success) {
-        const messages = response.data.messages || [];
-        setMessages(messages);
-        setType("single");  // set chat type to single
-        // setIsBlocked(response.data.isBlocked);
-        // setHasLeftGroup(response.data.hasLeftGroup);
-      } else {
-        Alert.alert(
-          "Error",
-          response.data.message || "Failed to fetch messages"
-        );
-      }
-    } catch (error) {
-      console.error("Error fetching messages:", error);
-      Alert.alert("Error", error.message || "Failed to fetch messages");
+      if (typeof userParam === "string") userParam = JSON.parse(userParam);
+      setCurrentChatUser(userParam);
+    } catch (e) {
+      console.warn("Failed to parse user param:", e);
     }
-  };
+  }, [params.user]);
 
-  // ------------------ Load Wallpaper from AsyncStorage ------------------
+  // ------------------ Load Wallpaper ------------------
   useEffect(() => {
     (async () => {
       const uri = await AsyncStorage.getItem("chat_wallpaper");
@@ -112,70 +59,162 @@ const Message = () => {
     })();
   }, []);
 
+  // ------------------ Fetch Messages ------------------
+  const fetchMessages = useCallback(async () => {
+    if (!currentChatUser?.id) return;
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return Alert.alert("Error", "No token found");
+
+      const response = await axios.get(
+        `${process.env.EXPO_API_URL}/get/messages`,
+        {
+          params: { receiver_id: currentChatUser.id },
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      if (response.data.success) {
+        setMessages(response.data.messages || []);
+        setType("single");
+      } else {
+        Alert.alert("Error", response.data.message || "Failed to fetch messages");
+      }
+    } catch (err) {
+      console.error("Fetch messages error:", err);
+    }
+  }, [currentChatUser?.id]);
+
+  useEffect(() => {
+    fetchMessages();
+
+    const socket = getSocket();
+    if (!socket) return;
+
+    const handleNewMessage = (msg) => {
+      if (
+        (msg.sender_id === me.id && msg.receiver_id === currentChatUser?.id) ||
+        (msg.sender_id === currentChatUser?.id && msg.receiver_id === me.id)
+      ) {
+        setMessages((prev) => [...prev, msg]);
+      }
+    };
+
+    socket.on("newMessage", handleNewMessage);
+    return () => {
+      socket.off("newMessage", handleNewMessage);
+    };
+  }, [fetchMessages, currentChatUser?.id]);
+
   // ------------------ Message Selection ------------------
   const toggleMessageSelection = (id) => {
+    console.log(id);
+    
     setSelectedMessages((prev) =>
       prev.includes(id) ? prev.filter((msgId) => msgId !== id) : [...prev, id]
     );
   };
 
-  const handleLongPress = (item) => {
-    toggleMessageSelection(item.id);
-  };
+  const handleLongPress = (item) => toggleMessageSelection(item.id);
 
-  useEffect(()=>{
-    // console.log("This is me",me);
-    // console.log("This is user",user);
-    
-  },[user,me])
-
-  // ------------------ Delete Messages ------------------
-  const deleteSelectedMessages = () => {
-    Alert.alert(
-      "Delete Messages",
-      `Are you sure you want to delete ${selectedMessages.length} message(s)?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: () => {
-            setMessages((prev) =>
-              prev.filter((msg) => !selectedMessages.includes(msg.id))
-            );
-            setSelectedMessages([]);
-            setEditingMessageId(null);
-            setMessageText("");
-          },
-        },
-      ]
-    );
-  };
-
-  // ------------------ Cancel Selection ------------------
   const cancelSelection = () => {
     setSelectedMessages([]);
     setEditingMessageId(null);
     setMessageText("");
   };
 
-  // ------------------ Edit Message /send Message ------------------
-  // ✅ Send or Edit message
-  const editSelectedMessage = () => {
-    if (selectedMessages.length === 1) {
-      const msgToEdit = messages.find((msg) => msg.id === selectedMessages[0]);
-      if (msgToEdit) {
-        setEditingMessageId(msgToEdit.id);
-        setMessageText(msgToEdit.text);
+  // ------------------ Delete Messages ------------------
+  const deleteSelectedMessages = async () => {
+    // if (!selectedMessages.length) return Alert.alert("No messages selected");
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return Alert.alert("Error", "No token found");
+
+      Alert.alert(
+        "Delete Messages",
+        `Are you sure you want to delete ${selectedMessages.length} message(s)?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              // Loop to delete all selected messages
+              await Promise.all(
+                selectedMessages.map((msgId) =>
+                  axios.delete(`${process.env.EXPO_API_URL}/messages/${msgId}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                  })
+                )
+              );
+
+              setMessages((prev) =>
+                prev.filter((msg) => !selectedMessages.includes(msg.id))
+              );
+              cancelSelection();
+            },
+          },
+        ]
+      );
+    } catch (err) {
+      console.error("Delete message error:", err);
+    }
+  };
+
+  // ------------------ Edit Message ------------------
+  const editSelectedMessage = async () => {
+    if (!selectedMessages.length) return Alert.alert("No message selected");
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return Alert.alert("Error", "No token found");
+
+      const msgId = selectedMessages[0];
+      const response = await axios.put(
+        `${process.env.EXPO_API_URL}/messages/${msgId}`,
+        { message: messageText },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === msgId ? { ...msg, message: messageText } : msg
+          )
+        );
+        cancelSelection();
       }
+    } catch (err) {
+      console.error("Edit message error:", err);
+    }
+  };
+
+  // ------------------ Send Message ------------------
+  const handleSend = async () => {
+    if (!messageText.trim()) return;
+
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return Alert.alert("Error", "No token found");
+
+      const response = await axios.post(
+        `${process.env.EXPO_API_URL}/messages`,
+        { message: messageText, receiver_id: currentChatUser.id },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setMessages((prev) => [...prev, response.data.message]);
+        setMessageText("");
+      }
+    } catch (err) {
+      console.error("Send message error:", err);
     }
   };
 
   // ------------------ Clear Chat ------------------
   const clearChat = () => {
     setMessages([]);
-    setSelectedMessages([]);
-    setEditingMessageId(null);
+    cancelSelection();
   };
 
   // ------------------ Change Wallpaper ------------------
@@ -189,36 +228,6 @@ const Message = () => {
     }
   };
 
-useEffect(() => {
-  const fetchMessages = async () => {
-    await handleGetMessage(); // load old history once
-  };
-  fetchMessages();
-
-  const socket = getSocket();
-  if (socket) {
-    console.log("📩 Connected to socket", socket.id);
-
-    const handleNewMessage = (msg) => {
-      // console.log("📩 Received socket message:", msg);
-
-      // Use correct property names (snake_case)
-      if (
-        (msg.sender_id === me.id && msg.receiver_id === user.id) ||
-        (msg.sender_id === user.id && msg.receiver_id === me.id)
-      ) {
-        setMessages((prev) => [...prev, msg]);
-      }
-    };
-
-    socket.on("newMessage", handleNewMessage);
-
-    return () => {
-      socket.off("newMessage", handleNewMessage);
-    };
-  }
-}, [user.id]);
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -227,15 +236,15 @@ useEffect(() => {
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
-          {/* 🔹 Chat Header */}
+          {/* Chat Header */}
           <OneToOneChatHeader
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
-            user={user}
+            user={currentChatUser}
           />
 
-          {/* 🔹 Blocked Contact Overlay */}
+          {/* Blocked Overlay */}
           {isBlocked ? (
             <BlockedOverlay
               onUnblock={() => setIsBlocked(false)}
@@ -260,7 +269,7 @@ useEffect(() => {
             />
           ) : (
             <>
-              {/* 🔹 Action bar for selected messages */}
+              {/* Selected Messages Action Bar */}
               {selectedMessages.length > 0 && (
                 <SelectedMessagesActionBar
                   selectedCount={selectedMessages.length}
@@ -270,28 +279,30 @@ useEffect(() => {
                 />
               )}
 
-              {/* 🔹 Messages List */}
+              {/* Messages List */}
               <MessagesList
-              type={type}
+                type={type}
                 messages={messages}
-                user={user}
+                user={currentChatUser}
                 onLongPress={handleLongPress}
                 selectedMessages={selectedMessages}
                 fadeAnim={fadeAnim}
                 flatListRef={flatListRef}
                 wallpaperUri={wallpaperUri}
+                onDeleteMessage={deleteSelectedMessages} // For real-time delete
+                onEditMessage={editSelectedMessage} // For real-time edit
               />
 
-              {/* 🔹 Message Input Bar */}
+              {/* Send Message Bar */}
               <SendMessageBar
-               type={type}
+                type={type}
                 messageText={messageText}
                 setMessageText={setMessageText}
                 editingMessageId={editingMessageId}
                 cancelEditing={cancelSelection}
-                // onSend={handleSend} // ✅ Fixed function reference
-                user={user}
-                handleGetMessage={handleGetMessage}
+                onSend={handleSend}
+                user={currentChatUser}
+                handleGetMessage={fetchMessages}
               />
             </>
           )}

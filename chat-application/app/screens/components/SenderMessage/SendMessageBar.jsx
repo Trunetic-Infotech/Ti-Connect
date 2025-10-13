@@ -121,7 +121,7 @@
 //     };
 
 //     if (type === "group") {
-      
+
 //       socket.on("groupNewMessage", handleNewMessage);
 //     } else {
 //       socket.on("newMessage", handleNewMessage);
@@ -135,7 +135,6 @@
 //       }
 //     };
 //   }, [myId, dispatch, type, GroupDetails?.id]);
-
 
 //   // ✅ Handle mic (voice)
 //   const handleMicPress = async () => {
@@ -156,10 +155,10 @@
 //    const handleOutsidePress = () => {
 //     if (attachmentOptionsVisible) setAttachmentOptionsVisible(false);
 //   };
- 
+
 //   useEffect(()=>{
 //     console.log("mediatype",mediaType);
-    
+
 //   },[mediaType])
 
 //   return (
@@ -335,11 +334,6 @@
 
 // export default SendMessageBar;
 
-
-
-
-
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -363,7 +357,7 @@ import VideoPicker from "../VideoPicker/VideoPicker";
 import AudioPicker from "../AudioPicker/AudioPicker";
 import ContactsModal from "../Contacts/Contacts";
 import useVoiceRecorder from "../VoiceRecorder/VoiceRecorder";
-import mimeTypeMap from "./memtype"
+import mimeTypeMap from "./memtype";
 const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
   const [attachmentOptionsVisible, setAttachmentOptionsVisible] =
     useState(false);
@@ -378,104 +372,106 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
   const { user } = useLocalSearchParams();
   const parsedUser = user ? JSON.parse(user) : null;
 
+  const onSend = async (messageData) => {
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      const socket = getSocket();
 
-const onSend = async(messageData)=>{
-  try {
-    const token = await SecureStore.getItemAsync("token");
-     const socket = getSocket();
+      let fileUrl = null;
 
-
-    let fileUrl = null;
-
-    if(messageData?.uri){
-      const fileForm = new FormData();
-      const uriParts = messageData.uri.split(".");
-      const fileType = uriParts[uriParts.length -1];
-      fileForm.append("media_url",{
-        uri: messageData.uri,
-        name:`upload.${fileType}`,
-        type: messageData.mimeType || mimeTypeMap[fileType] 
-        // || `application/${fileType}`
-      });
-        
-      const uploadRes = await axios.post(`${process.env.EXPO_API_URL}/messages/upload`,fileForm,{
-        headers:{
-          Authorization:`Bearer ${token}`,
-          "Content-Type":"multipart/form-data"
+      if (messageData?.uri) {
+        const fileForm = new FormData();
+        const uriParts = messageData.uri.split(".");
+        const fileType = uriParts[uriParts.length - 1];
+        fileForm.append("media_url", {
+          uri: messageData.uri,
+          name: `upload.${fileType}`,
+          type:
+            messageData.mimeType ||
+            mimeTypeMap[fileType] ||
+            `application/${fileType}`,
+        });
+        if (messageData.duration) {
+          fileForm.append("duration", messageData.duration.toString());
         }
-      });
-     console.log("uploadRes",uploadRes.data);
-     
-      if(uploadRes.data?.fileUrl){
-        console.log("✅ Successfully uploaded:",uploadRes.data);
-        fileUrl = uploadRes.data.fileUrl;
-        Alert.alert("Upload Success","File uploaded successfully.");
-      }else{
-        
-        Alert.alert("Upload Error","File upload failed.");
-        return;
-      }
-    }
-    console.log('====================================');
-    console.log(fileUrl);
-    console.log('====================================');
+        const uploadRes = await axios.post(
+          `${process.env.EXPO_API_URL}/messages/upload`,
+          fileForm,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "multipart/form-data",
+            },
+          }
+        );
+        console.log("uploadRes", uploadRes.data);
 
-    const msgData = {     
-       message: messageData?.text || messageText || "",
-      message_type: messageData?.type || (fileUrl ? "media" : "text"),
-      media_url: fileUrl,
-      created_at: new Date().toISOString(),
-      myId
-    };
-  
+        if (uploadRes.data?.fileUrl) {
+          console.log("✅ Successfully uploaded:", uploadRes.data);
+          fileUrl = uploadRes.data.fileUrl;
+          Alert.alert("Upload Success", "File uploaded successfully.");
+        } else {
+          Alert.alert("Upload Error", "File upload failed.");
+          return;
+        }
+      }
+      console.log("====================================");
+      console.log("dsffium", fileUrl);
+      console.log("====================================");
+
+      const msgData = {
+        message: messageData?.text || messageText || "",
+        message_type: messageData?.type || (fileUrl ? "media" : "text"),
+        media_url: fileUrl,
+        created_at: new Date().toISOString(),
+        myId,
+      };
 
       if (type === "single") {
-      msgData.receiver_id = parsedUser?.id;
-    } else if (type === "group") {
-      msgData.groupId = GroupDetails?.id;
-    }else {
+        msgData.receiver_id = parsedUser?.id;
+      } else if (type === "group") {
+        msgData.groupId = GroupDetails?.id;
+      } else {
         Alert.alert("Error", "Invalid chat type");
         return;
       }
- // 🔹 Step 3: Send message in real-time via socket
+      // 🔹 Step 3: Send message in real-time via socket
       if (socket) {
         const event = type === "group" ? "groupNewMessage" : "newMessage";
         socket.emit(event, msgData);
       }
 
-       //     // 🔹 Step 4: Optimistically update chat
+      //     // 🔹 Step 4: Optimistically update chat
       dispatch(pushNewMessage(msgData));
       setMessageText("");
 
-    const url =
-      type === "single"
-        ? `${process.env.EXPO_API_URL}/messages`
-        : `${process.env.EXPO_API_URL}/groups/send/messages`;
+      const url =
+        type === "single"
+          ? `${process.env.EXPO_API_URL}/messages`
+          : `${process.env.EXPO_API_URL}/groups/send/messages`;
 
-        try {
-          const response = await axios.post(url, msgData, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+      try {
+        const response = await axios.post(url, msgData, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
-          if (response.data.success && typeof handleGetMessage === "function") {
-            Alert.alert("Message Sent","Message sent successfully.");
-            handleGetMessage();
-          }
-        } catch (error) {
-          console.log('====================================');
-          Alert.alert(error.response?.data || error.message || "Server Error");
-          console.log('====================================');
+        if (response.data.success && typeof handleGetMessage === "function") {
+          Alert.alert("Message Sent", "Message sent successfully.");
+          handleGetMessage();
         }
+      } catch (error) {
+        console.log("====================================");
+        Alert.alert(error.response?.data || error.message || "Server Error");
+        console.log("====================================");
+      }
+    } catch (error) {
+      console.log("error", error);
 
-  } catch (error) {
-    console.log("error",error);
-    
-    console.log('====================================');
-    Alert.alert("❌ Upload Error:",error.response?.data || error.message);
-    console.log('====================================');
-  }
-}
-
+      console.log("====================================");
+      Alert.alert("❌ Upload Error:", error.response?.data || error.message);
+      console.log("====================================");
+    }
+  };
 
   // ✅ Handle text message send
   const handleSendMessage = async () => {
@@ -550,7 +546,7 @@ const onSend = async(messageData)=>{
                 CameraPicker((imageMessage) => {
                   onSend(imageMessage);
                   console.log("imageMessage", imageMessage);
-                  
+
                   setAttachmentOptionsVisible(false);
                 })
               }
@@ -588,7 +584,9 @@ const onSend = async(messageData)=>{
               <View className="w-14 h-14 bg-yellow-100 rounded-full justify-center items-center mb-1">
                 <Feather name="file-text" size={22} color="#d97706" />
               </View>
-              <Text className="text-xs text-center text-gray-700">Document</Text>
+              <Text className="text-xs text-center text-gray-700">
+                Document
+              </Text>
             </TouchableOpacity>
 
             <DocumentPickerModal
@@ -697,10 +695,3 @@ const onSend = async(messageData)=>{
 };
 
 export default SendMessageBar;
-
-
-
-
-
-
-
