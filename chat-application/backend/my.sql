@@ -97,16 +97,56 @@ END$$
 DELIMITER ;
 
 
+ALTER TABLE ti_connect.chat_messages
+ADD COLUMN duration DOUBLE DEFAULT NULL AFTER media_url;
+
+ALTER TABLE ti_connect.chat_messages
+MODIFY COLUMN message_type ENUM('text','image','video','audio','file','contact','document') NOT NULL DEFAULT 'text';
+
+Disable FK checks SET FOREIGN_KEY_CHECKS = 0; 
+TRUNCATE TABLE ti_connect.create_groups;
+Re-enable FK checks SET FOREIGN_KEY_CHECKS = 1;
+
+ALTER TABLE ti_connect.create_groups
+ADD COLUMN role VARCHAR(250) DEFAULT 'Admin';
 
 
 
 
+Disable FK checks SET FOREIGN_KEY_CHECKS = 0; 
+TRUNCATE TABLE ti_connect.group_members;
+Re-enable FK checks SET FOREIGN_KEY_CHECKS = 1;
+
+ALTER TABLE ti_connect.group_members
+ADD COLUMN Block_Group ENUM('block', 'unblock') NOT NULL DEFAULT 'unblock';
+
+DELIMITER $$
+
+CREATE TRIGGER after_group_create
+AFTER INSERT ON ti_connect.create_groups
+FOR EACH ROW
+BEGIN
+  -- Insert admin into group_members only if not already present
+  IF NOT EXISTS (
+    SELECT 1 
+    FROM ti_connect.group_members 
+    WHERE group_id = NEW.id 
+      AND user_id = NEW.admin_id
+  ) THEN
+    INSERT INTO group_members (group_id, user_id, role)
+    VALUES (NEW.id, NEW.admin_id, 'admin');
+  END IF;
+END$$
+
+DELIMITER ;
 
 
 
 
-
-
+ALTER TABLE ti_connect.group_messages
+DROP FOREIGN KEY group_messages_ibfk_2;
+ALTER TABLE ti_connect.group_messages
+ADD CONSTRAINT fk_sender_user FOREIGN KEY (sender_id) REFERENCES users(id);
 
 
 
