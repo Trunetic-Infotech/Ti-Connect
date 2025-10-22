@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef, useCallback } from "react";
 import {
   View,
   FlatList,
@@ -11,27 +11,33 @@ import {
   Modal,
   TouchableWithoutFeedback,
   Dimensions,
+  Alert,
 } from "react-native";
 import { Video } from "expo-av";
 import VoicePlayer from "../VoicePlayer/VoicePlayer";
 import ContactBubble from "../ContactBubble/ContactBubble";
-import { format } from "date-fns";
 import DocumentViewer from "../DocumentViewer/DocumentViewer";
-import { Alert } from "react-native";
+import { format } from "date-fns";
+import axios from "axios";
+import MediaItem from "../MediaItems/MediaItem";
 
 const MessagesList = ({
   type, // "single" or "group"
-  user, // current logged in user
+  user, // current logged-in user
   messages, // array of messages
+  setMessages,
   fadeAnim,
   flatListRef,
   wallpaperUri,
   onDeleteMessage, // delete handler from parent
   onEditMessage, // edit handler from parent
 }) => {
-  const [selectedMedia, setSelectedMedia] = useState(null); // { type, uri }
+  const [selectedMedia, setSelectedMedia] = useState(null);
   const screenWidth = Dimensions.get("window").width;
+  const viewableItemsRef = useRef([]);
+  
 
+  // 🕒 Format time safely
   const formatTime = (timestamp) => {
     try {
       return format(new Date(timestamp), "hh:mm a");
@@ -40,16 +46,35 @@ const MessagesList = ({
     }
   };
 
-  // 🔹 Auto scroll to bottom on new messages
+  const handleOpenMedia = (type, uri, extra = {}) => {
+  if (!uri) return;
+  setSelectedMedia({ type, uri, ...extra });
+};
+
+const handleCloseMedia = () => setSelectedMedia(null);
+
+
+  // 🔹 Auto-scroll to bottom when messages change
   useEffect(() => {
     if (messages.length > 0 && flatListRef?.current) {
       setTimeout(() => {
         flatListRef.current.scrollToEnd({ animated: true });
       }, 100);
     }
-  }, [messages]);
 
-  // Helper to get initials
+    // 🔹 Mark all incoming messages as delivered when chat opens
+    // if (user) {
+    //   messages.forEach((msg) => {
+    //     if (msg.status === "sent" && msg.receiver_id !== user.id) {
+    //       axios
+    //         .post(`${process.env.EXPO_API_URL}/messages/${msg.id}/delivered`)
+    //         .catch((err) => console.log("Error marking delivered:", err));
+    //     }
+    //   });
+    // }
+  }, [messages, user]);
+
+  // 🔹 Helper to get initials
   const getInitials = (name) => {
     if (!name) return "?";
     const words = name.trim().split(" ");
@@ -58,101 +83,123 @@ const MessagesList = ({
     return (first + second).toUpperCase();
   };
 
-  // 🔹 Render each message
-  const renderMessage = ({ item }) => {
-    let isMe = false;
-    let avatar = null;
-    let senderName = null;
-
-    if (type === "single") {
-      // ✅ For 1-to-1 chats
-      isMe = item.receiver_id === user?.id;
-      avatar = isMe ? item.sender_image : item.receiver_image;
-      senderName = null;
-    } else {
-      // ✅ For group chats
-      isMe = item.isSender;
-      avatar = item.profile_picture;
-      senderName = item.username?.trim() || "Unknown";
+  // 🔹 Handle long press for Edit/Delete
+  const handleLongPress = (item) => {
+    if (!user) return;
+    if (Number(user.id) !== item.receiver_id) {
+      Alert.alert("You can only edit your own messages.");
+      return;
     }
 
-    // Long press menu for edit/delete
- const handleLongPress = () => {
-  const isTextMessage = item.message_type === "text";
-
-  const actions = [
-    { text: "Cancel", style: "cancel" },
-    {
-      text: "Delete",
-      style: "destructive",
-      onPress: () => {
-        if (onDeleteMessage) onDeleteMessage(item.id);
+    const isTextMessage = item.message_type === "text";
+    const actions = [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => {
+          if (onDeleteMessage) onDeleteMessage(item.id);
+        },
       },
+    ];
+
+    if (isTextMessage) {
+      actions.splice(1, 0, {
+        text: "Edit",
+        onPress: () => {
+          if (onEditMessage) onEditMessage(item);
+        },
+      });
+    }
+
+    Alert.alert("Message Actions", "", actions);
+  };
+
+  // 🔹 Handle viewable messages to mark read
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }) => {
+      if (!user) return;
+
+      viewableItems.forEach((item) => {
+        const msg = item.item;
+
+        if (msg.receiver_id !== user.id && msg.status !== "read") {
+          // Call API
+          axios
+            .post(`${process.env.EXPO_API_URL}/messages/${msg.id}/read`)
+            .catch((err) => console.log("Error marking read:", err));
+
+          // Update local messages so UI updates immediately
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === msg.id ? { ...m, status: "read", is_read: 1 } : m
+            )
+          );
+        }
+      });
     },
-  ];
+    [user]
+  );
 
-  if (isTextMessage) {
-    actions.splice(1, 0, {
-      text: "Edit",
-      onPress: () => {
-        if (onEditMessage) onEditMessage(item.id, item.message);
-      },
-    });
-  }
+  const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
 
-  // Alert.alert("Message Actions", "", actions);
-};
-
+  // 🔹 Render message bubble
+  const renderMessage = ({ item }) => {
+    if (!user) return null;
+    const isMe =
+      type === "single"
+        ? item.receiver_id === user.id
+        : item.sender_id === user.id; // fixed logic
+    const avatar = isMe ? item.sender_image : item.receiver_image;
+    const senderName = type === "group" ? item.username?.trim() : null;
 
     return (
       <Animated.View style={{ opacity: 1 }}>
         <View
           className={`max-w-[100%] my-2 flex-row ${
             isMe ? "self-end justify-end" : "self-start justify-start"
-          }`}
-        >
+          }`}>
           {/* Avatar for received messages */}
           {!isMe &&
             (avatar ? (
               <Image
                 source={{ uri: avatar }}
-                className="w-8 h-8 rounded-full mr-2"
+                className='w-8 h-8 rounded-full mr-2'
               />
             ) : (
-              <View className="w-8 h-8 rounded-full bg-gray-300 justify-center items-center mr-2">
-                <Text className="text-xs font-bold text-gray-700">
+              <View className='w-8 h-8 rounded-full bg-gray-300 justify-center items-center mr-2'>
+                <Text className='text-xs font-bold text-gray-700'>
                   {getInitials(senderName)}
                 </Text>
               </View>
             ))}
-          <TouchableWithoutFeedback onLongPress={handleLongPress}>
-            {/* Chat bubble */}
+
+          {/* Chat Bubble */}
+          <TouchableWithoutFeedback onLongPress={() => handleLongPress(item)}>
             <View
               className={`py-2 px-3 rounded-2xl shadow-sm overflow-hidden max-w-[75%] ${
                 isMe ? "bg-indigo-600" : "bg-yellow-300"
-              }`}
+              } ${item.message_type === "contact" ? "p-1 max-w-[90%]" : ""}`}
               style={{
                 borderBottomRightRadius: isMe ? 4 : 18,
                 borderBottomLeftRadius: isMe ? 18 : 4,
-              }}
-            >
+              }}>
               {/* Sender name for group */}
               {!isMe && senderName && (
-                <Text className="text-xs font-semibold text-gray-700 mb-1">
+                <Text className='text-xs font-semibold text-gray-700 mb-1'>
                   {senderName}
                 </Text>
               )}
 
-              {/* 🔹 Message content */}
+              {/* 🟡 Message Types */}
               {item.message_type === "image" ? (
                 <TouchableOpacity
                   onPress={() =>
                     setSelectedMedia({ type: "image", uri: item.media_url })
-                  }
-                >
+                  }>
                   <Image
                     source={{ uri: item.media_url }}
-                    resizeMode="cover"
+                    resizeMode='cover'
                     style={{
                       width: screenWidth * 0.55,
                       height: screenWidth * 0.55,
@@ -162,23 +209,7 @@ const MessagesList = ({
                   />
                 </TouchableOpacity>
               ) : item.message_type === "video" ? (
-                <TouchableOpacity
-                  onPress={() =>
-                    setSelectedMedia({ type: "video", uri: item.media_url })
-                  }
-                >
-                  <Video
-                    source={{ uri: item.media_url }}
-                    resizeMode="cover"
-                    useNativeControls
-                    style={{
-                      width: screenWidth * 0.6,
-                      height: 200,
-                      borderRadius: 12,
-                      backgroundColor: "#000",
-                    }}
-                  />
-                </TouchableOpacity>
+                <MediaItem item={item} onSelect={handleOpenMedia} />
               ) : item.message_type === "audio" ? (
                 <TouchableOpacity
                   onPress={() =>
@@ -187,8 +218,7 @@ const MessagesList = ({
                       uri: item.media_url,
                       duration: item.duration,
                     })
-                  }
-                >
+                  }>
                   <VoicePlayer
                     uri={item.media_url}
                     duration={item.duration || 0}
@@ -200,37 +230,44 @@ const MessagesList = ({
                 <TouchableOpacity
                   onPress={() =>
                     setSelectedMedia({ type: "document", uri: item.media_url })
-                  }
-                >
+                  }>
                   <DocumentViewer uri={item.media_url} />
-                </TouchableOpacity>
-              ) : item.message_type === "file" ? (
-                <TouchableOpacity
-                  onPress={() =>
-                    setSelectedMedia({ type: "file", uri: item.media_url })
-                  }
-                >
-                  <FileViewer uri={item.media_url} />
                 </TouchableOpacity>
               ) : (
                 <Text
                   className={`${
                     isMe ? "text-white" : "text-gray-800"
-                  } text-[15px] leading-5`}
-                >
-                  {item.message || "[empty]"}
+                  } text-[15px] leading-5`}>
+                  {item.message || "[empty]"}{" "}
+                  {item.isEdited && (
+                    <Text
+                      className={`text-[10px] ${
+                        isMe ? "text-white/70" : "text-gray-600"
+                      }`}>
+                      (edited)
+                    </Text>
+                  )}
                 </Text>
               )}
 
-              {/* Time */}
+              {/* Time + Status */}
               {item.created_at && (
-                <Text
-                  className={`text-[10px] mt-1 ${
-                    isMe ? "text-white/60" : "text-gray-600/70"
-                  } text-right`}
-                >
-                  {formatTime(item.created_at)}
-                </Text>
+                <View className='flex-row items-center justify-end mt-1'>
+                  <Text
+                    className={`text-[10px] ${
+                      isMe ? "text-white/60" : "text-gray-600/70"
+                    }`}>
+                    {formatTime(item.created_at)}
+                  </Text>
+
+                  {isMe && (
+                    <Text className='text-[10px] ml-2 font-semibold text-white/70'>
+                      {item.status === "sent" && "Sent"}
+                      {item.status === "delivered" && "Delivered"}
+                      {item.status === "read" && "Read"}
+                    </Text>
+                  )}
+                </View>
               )}
             </View>
           </TouchableWithoutFeedback>
@@ -240,17 +277,23 @@ const MessagesList = ({
   };
 
   // 🔹 Main render
+  if (!user) {
+    return (
+      <View className='flex-1 items-center justify-center'>
+        <Text className='text-gray-500'>Loading user...</Text>
+      </View>
+    );
+  }
+
   return (
     <KeyboardAvoidingView
-      className="flex-1"
-      behavior={Platform.OS === "ios" ? "padding" : undefined}
-    >
+      className='flex-1'
+      behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View
-        className="flex-1"
+        className='flex-1'
         style={{
           backgroundColor: wallpaperUri ? "transparent" : "#fef3c7",
-        }}
-      >
+        }}>
         {/* Wallpaper */}
         {wallpaperUri && (
           <Image
@@ -266,29 +309,29 @@ const MessagesList = ({
 
         {/* No messages */}
         {messages.length === 0 ? (
-          <View className="flex-1 items-center justify-center">
-            <Text className="text-gray-500">No messages yet</Text>
+          <View className='flex-1 items-center justify-center'>
+            <Text className='text-gray-500'>No messages yet</Text>
           </View>
         ) : (
           <FlatList
             ref={flatListRef}
             data={messages}
-            keyExtractor={(item, index) =>
-              item.id?.toString() || index.toString()
-            }
+            keyExtractor={(item, index) => String(item?.id || index)}
             renderItem={renderMessage}
             contentContainerStyle={{ padding: 10, flexGrow: 1 }}
             showsVerticalScrollIndicator={false}
             initialNumToRender={20}
             maxToRenderPerBatch={10}
             windowSize={10}
-            removeClippedSubviews
+            removeClippedSubviews={true}
             onContentSizeChange={() =>
               flatListRef?.current?.scrollToEnd({ animated: false })
             }
             onLayout={() =>
               flatListRef?.current?.scrollToEnd({ animated: false })
             }
+            onViewableItemsChanged={handleViewableItemsChanged}
+            viewabilityConfig={viewabilityConfig}
           />
         )}
 
@@ -296,16 +339,15 @@ const MessagesList = ({
         <Modal
           visible={!!selectedMedia}
           transparent
-          animationType="fade"
-          onRequestClose={() => setSelectedMedia(null)}
-        >
+          animationType='fade'
+          onRequestClose={() => setSelectedMedia(null)}>
           <TouchableWithoutFeedback onPress={() => setSelectedMedia(null)}>
-            <View className="flex-1 bg-black/90 justify-center items-center">
+            <View className='flex-1 bg-black/90 justify-center items-center'>
               {selectedMedia?.type === "image" && (
                 <Image
                   source={{ uri: selectedMedia.uri }}
-                  resizeMode="contain"
-                  className="w-full h-full"
+                  resizeMode='contain'
+                  className='w-full h-full'
                 />
               )}
 
@@ -313,15 +355,15 @@ const MessagesList = ({
                 <Video
                   source={{ uri: selectedMedia.uri }}
                   useNativeControls
-                  resizeMode="contain"
+                  resizeMode='contain'
                   shouldPlay
-                  className="w-full h-[60%]"
+                  className='w-full h-[60%]'
                 />
               )}
 
               {selectedMedia?.type === "audio" && (
-                <View className="bg-white rounded-2xl p-6 w-[80%] items-center">
-                  <Text className="text-gray-700 mb-3 font-semibold">
+                <View className='bg-white rounded-2xl p-6 w-[80%] items-center'>
+                  <Text className='text-gray-700 mb-3 font-semibold'>
                     Voice Note
                   </Text>
                   <VoicePlayer uri={selectedMedia.uri} />

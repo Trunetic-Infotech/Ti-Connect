@@ -1,6 +1,6 @@
 import express from "express";
 import { isAuthenticated } from "../../middleware/isAuthentication.js";
-import { DeleteMessage, GetMessages, SendMessage, UpdateMessage, UploadMedia } from "../../controller/message/messageController.js";
+import { DeleteMessage, GetMessages, MarkMessageDelivered, MarkMessageRead, SendMessage, UpdateMessage, UploadMedia } from "../../controller/message/messageController.js";
 import upload from "../../services/imagesUploader/uploader.js";
 
 
@@ -8,6 +8,8 @@ import upload from "../../services/imagesUploader/uploader.js";
 const router = express.Router();
 
 router.post("/messages", isAuthenticated ,SendMessage);
+router.post("/messages/:messageId/delivered" ,MarkMessageDelivered);
+router.post("/messages/:messageId/read",  MarkMessageRead);
 router.get("/get/messages",isAuthenticated, GetMessages);
 router.put("/messages/:messageId",isAuthenticated, UpdateMessage);
 router.delete("/messages/:messageId",isAuthenticated, DeleteMessage);

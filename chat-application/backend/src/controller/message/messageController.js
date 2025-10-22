@@ -9,7 +9,7 @@ export const SendMessage = async (req, res) => {
     console.log('====================================');
     console.log(req.body);
     console.log('====================================');
-    const { receiver_id, message, message_type = "text", media_url,duration ,is_read } = req.body;
+    const { receiver_id, message, message_type = "text", media_url,duration ,is_read, status, contact_details } = req.body;
 
     // console.log("data",sender_id);
 
@@ -25,8 +25,8 @@ export const SendMessage = async (req, res) => {
 
     // Save message to database
     const [result] = await chat_messages.execute(
-      "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type, media_url,duration ,is_read) VALUES (?,?, ?, ?, ? , ? , ?)",
-      [sender_id, receiver_id, message, message_type, media_url || null, duration || null, is_read || 0]
+      "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type, media_url,duration ,is_read, status,contact_details) VALUES (?,?, ?, ?, ? , ? , ?, ?, ?)",
+      [sender_id, receiver_id, message || null, message_type, media_url || null, duration || null, is_read || 0, status || 'sent', contact_details || null]
     );
 
     const newMessage = {
@@ -39,6 +39,8 @@ export const SendMessage = async (req, res) => {
       duration: duration || null,
       is_read: 0,
       created_at: new Date(),
+      status: status || "sent",
+      contact_details
     };
 
     // ✅ Update sender last_seen_at (active while messaging)
@@ -64,33 +66,74 @@ export const SendMessage = async (req, res) => {
   }
 };
 
-// get messages
-// export const GetMessages = async (req, res) => {
-//   try {
-//     const myId = req.user.id;
-//     const { receiver_id } = req.body;
+export const MarkMessageDelivered = async (req, res) => {
+  try {
+    const { messageId } = req.params;
 
-//     if (!receiver_id) {
-//       return res.status(400).json({ error: "Receiver ID is required" });
-//     }
+    // Update status in DB
+    await chat_messages.execute(
+      "UPDATE chat_messages SET status = 'delivered' WHERE id = ?",
+      [messageId]
+    );
 
-//     const [rows] = await chat_messages.execute(
-//       `SELECT * FROM chat_messages
-//    WHERE (sender_id = ? AND receiver_id = ?)
-//       OR (sender_id = ? AND receiver_id = ?)
-//    ORDER BY created_at ASC`,
-//       [myId, receiver_id, receiver_id, myId]
-//     );
+    const [rows] = await chat_messages.execute(
+      "SELECT * FROM chat_messages WHERE id = ?",
+      [messageId]
+    );
+    const message = rows[0];
+    console.log(message);
+    
 
-//     res.json({
-//       success: true,
-//       messages: rows,
-//     });
-//   } catch (error) {
-//     console.error("Error getting messages:", error);
-//     res.status(500).json({ error: "Failed to get messages" });
-//   }
-// };
+    // Get sender socket
+    const senderSocketId = getReceiverSocketId(message.sender_id); // ✅ fixed
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("message_status_update", {
+        message_id: message.id,
+        status: "delivered",
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.log("Error marking delivered:", error);
+    res.status(500).json({ error: "Failed to mark delivered" });
+  }
+};
+
+
+export const MarkMessageRead = async (req, res) => {
+  try {
+    const { messageId } = req.params;
+
+    await chat_messages.execute(
+      "UPDATE chat_messages SET status = 'read', is_read = 1 WHERE id = ?",
+      [messageId]
+    );
+
+    const [rows] = await chat_messages.execute(
+      "SELECT * FROM chat_messages WHERE id = ?",
+      [messageId]
+    );
+
+    const message = rows[0];
+   
+    console.log(message);
+    
+    const senderSocketId = getReceiverSocketId(message.sender_id);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("message_status_update", {
+        messageId: message.id,
+        status: "read",
+      });
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.log("Error marking read:", error);
+    res.status(500).json({ error: "Failed to mark read" });
+  }
+};
+
 
 export const GetMessages = async (req, res) => {
   try {
@@ -135,7 +178,12 @@ export const GetMessages = async (req, res) => {
       sender_image: msg.sender_image,
       receiver_name: msg.receiver_name,
       receiver_image: msg.receiver_image,
+      status: msg.status,
+      contact_details: msg.contact_details,
     }));
+
+    // console.log(messages);
+    
 
     // Send to receiver
     const receiverSocketId = getReceiverSocketId(receiver_id);
@@ -155,7 +203,11 @@ export const GetMessages = async (req, res) => {
 export const UpdateMessage = async (req, res) => {
   try {
     const userId = req.user.id; // ✅ Logged-in user ID
-    const { messageId, message, message_type = "text" } = req.body;
+    const {  message, message_type = "text" } = req.body;
+    const {messageId} = req.params;
+    
+    console.log(req.body);
+    
 
     if (!messageId || !message) {
       return res
@@ -216,14 +268,14 @@ export const UpdateMessage = async (req, res) => {
 //delete message messages and media file also
 export const DeleteMessage = async (req, res) => {
   try {
-    const { messageId } = req.body; // <-- message ID from request body
-    const userId = req.user.id; // <-- logged-in user's ID
+    const { messageId } = req.params;
+    const userId = req.user.id;
 
     if (!messageId) {
       return res.status(400).json({ error: "Message ID is required" });
     }
 
-    // 1. Fetch message first (before deleting)
+    // 1. Get the message
     const [rows] = await chat_messages.execute(
       "SELECT media_url, receiver_id FROM chat_messages WHERE id = ? AND sender_id = ?",
       [messageId, userId]
@@ -237,25 +289,35 @@ export const DeleteMessage = async (req, res) => {
 
     const { media_url, receiver_id } = rows[0];
 
-    // 2. Delete the message from DB
+    // 2. Delete from DB
     await chat_messages.execute("DELETE FROM chat_messages WHERE id = ?", [
       messageId,
     ]);
 
-    // 3. Delete media from Cloudinary if exists
+    // 3. Delete from Cloudinary if needed
     if (media_url) {
-      // Extract public_id from Cloudinary URL
       const parts = media_url.split("/");
-      const filename = parts.pop(); // last part of URL
-      const publicId = filename.split(".")[0]; // remove file extension
+      const filename = parts.pop();
+      const publicId = filename.split(".")[0];
       await cloudinary.uploader.destroy(publicId);
     }
 
-    // 4. Notify receiver via Socket.IO
+    // 4. Notify both users via Socket.IO
     const receiverSocketId = getReceiverSocketId(receiver_id);
-    if (receiverSocketId) {
-      io.to(receiverSocketId).emit("message_deleted", { id: messageId });
-    }
+    const senderSocketId = getReceiverSocketId(userId);
+
+    const payload = {
+      messageId: Number(messageId),
+      sender_id: userId,
+      receiver_id,
+    };
+    
+    // console.log(receiverSocketId, senderSocketId);
+    
+
+    // 🔥 Emit event to both sender and receiver (camelCase event)
+    if (receiverSocketId) io.to(receiverSocketId).emit("messageDeleted", payload);
+    if (senderSocketId) io.to(senderSocketId).emit("messageDeleted", payload);
 
     return res.json({ success: true, message: "Message deleted successfully" });
   } catch (error) {
@@ -264,115 +326,13 @@ export const DeleteMessage = async (req, res) => {
   }
 };
 
-//upload video files
-// export const UploadMedia = async (req, res) => {
-//   try {
-//     const files = req.files; // Multer stores files here
-//     console.log('====================================');
-//     console.log("files", files);
-//     console.log('====================================');
-
-//     if (!files || files.length === 0) {
-//       return res.status(400).json({ error: "No media files uploaded." });
-//     }
- 
-
-//     // Determine media type
-//     const getType = (file) => {
-//       if (file.mimetype.startsWith("image/")) return "image";
-//       if (file.mimetype.startsWith("video/")) return "video";
-//       if (file.mimetype.startsWith("audio/")) return "voice";
-//       if (file.mimetype.startsWith("application/")) return "document";
-//       if (file.mimetype === "text/contact") return "text";
-//       return "file";
-//     };
-
-//     const fileTypes = files.map(getType);
-//     const hasVideo = fileTypes.includes("video");
-//     const hasAudio = fileTypes.includes("voice");
-
-//     // ❌ Restrict multiple video/audio uploads
-//     if ((hasVideo || hasAudio) && files.length > 1) {
-//       return res.status(400).json({
-//         error: "You can upload only one video or one audio file at a time.",
-//       });
-//     }
-
-//     // // ✅ Upload each file to Cloudinary
-//     // const uploadedMedia = await Promise.all(
-//     //   files.map(async (file) => {
-//     //     const type = getType(file);
-
-//     //     const uploadRes = await cloudinary.uploader.upload(file.path, {
-//     //       resource_type: "auto",
-//     //       folder: "ChatMedia",
-//     //       public_id: `${Date.now()}-${sender_id}`,
-//     //     });
-
-//     //     const msg = message && message.trim() !== "" ? message : null;
-
-//     //     const [result] = await chat_messages.execute(
-//     //       "INSERT INTO chat_messages (sender_id, receiver_id, message, media_url, message_type) VALUES (?, ?, ?, ?, ?)",
-//     //       [sender_id, receiver_id, msg, uploadRes.secure_url, type]
-//     //     );
-
-//         // return {
-//         //   media_url: files.path,
-//         // };
-   
-
-//     // Notify receiver via Socket.IO
-//     // const receiverSocketId = getReceiverSocketId(receiver_id);
-//     // if (receiverSocketId) {
-//     //   uploadedMedia.forEach((m) =>
-//     //     io.to(receiverSocketId).emit("newMessage", m)
-//     //   );
-//     // }
-
-//     res.json({
-//       success: true,
-//       message: "Media uploaded successfully.",
-//       fileUrl: files.map(f => f.path) 
-//     });
-//   } catch (error) {
-//     console.error("Error uploading media:", error);
-//     res.status(500).json({ error: "Failed to upload media" });
-//   }
-// };
-
-// controllers/messageController.js
-// export const UploadMedia = async (req, res) => {
-//   try {
-//     if (!req.files || req.files.length === 0) {
-//       return res.status(400).json({ success: false, message: "No file uploaded" });
-//     }
-
-//     const uploadedFiles = req.files.map((file) => ({
-//       url: file.path,
-//       type: file.mimetype,
-//       filename: file.filename,
-//     }));
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "File(s) uploaded successfully",
-//       fileUrl: uploadedFiles[0].url, // for single upload
-//       files: uploadedFiles,          // keep all if you need multi-upload later
-//     });
-//   } catch (err) {
-//     console.error("Upload error:", err);
-//     res.status(500).json({ success: false, message: err.message });
-//   }
-// };
-
-
-
-
 export const UploadMedia = async (req, res) => {
   try {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
+    console.log(req.files);
+    
 
     // Determine media type
     const getType = (file) => {

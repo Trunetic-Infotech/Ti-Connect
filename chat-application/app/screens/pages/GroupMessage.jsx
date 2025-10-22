@@ -39,6 +39,7 @@ const GroupMessage = () => {
   const flatListRef = useRef(null);
 
   const currentUserId = useSelector((state) => state.auth.user.id);
+  const user = useSelector((state)=>state.auth.user);
 
   const params = useLocalSearchParams();
   let GroupDetails = params.groupedata;
@@ -48,6 +49,8 @@ const GroupMessage = () => {
     if (typeof GroupDetails === "string") {
       GroupDetails = JSON.parse(GroupDetails);
     }
+    console.log("This is the grp data ", GroupDetails);
+    
   } catch (e) {
     console.log("Failed to parse GroupDetails:", e);
   }
@@ -68,6 +71,9 @@ const GroupMessage = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
+
+      console.log("-----------------------------------------", response);
+      
       // console.log("GroupData", response.data);
       if (response.data.success) {
         const messages = response.data.messages.map((msg) => ({
@@ -116,11 +122,11 @@ useEffect(() => {
   const socket = getSocket();
 
   const handleNewMessage = (msg) => {
-    if (msg.groupId === GroupDetails.id) {
-      setMessages((prev) => {
-        if (prev.some(m => m.id === msg.id)) return prev; // avoid duplicates
-        return [msg, ...prev];
-      });
+    console.log("This is the new msg from group", msg);
+    
+    if (msg.group_id === GroupDetails.id) {
+          setMessages((prev) => [...prev, msg]);
+
     }
   };
 
@@ -205,11 +211,14 @@ useEffect(() => {
         setMessageText("");
       } else {
         // Send new message
+        const token = await SecureStore.getItemAsync("token");
+              if (!token) return Alert.alert("Error", "No token found");
         const res = await axios.post(
-          `${process.env.EXPO_API_URL}/groups/${GroupDetails.id}/messages`,
-          message
+          `${process.env.EXPO_API_URL}/groups/send/messages`,
+          {message, groupId: GroupDetails.id},
+          { headers: { Authorization: `Bearer ${token}` } }
         );
-        setMessages((prev) => [res.data, ...prev]);
+        setMessages((prev) => [res.data.newGroupMessage, ...prev]);
 
         setTimeout(
           () =>
@@ -320,6 +329,8 @@ useEffect(() => {
                 flatListRef={flatListRef}
                 wallpaperUri={wallpaperUri}
                 type={type}
+                user={user}
+                setMessages={setMessages}
               />
 
               <SendMessageBar

@@ -127,17 +127,17 @@ export const SendGroupMessage = async (req, res) => {
       return res.status(403).json({ error: "You are not a member of this group" });
     }
 
+    const mesgText = message.text;
     // ✅ Save message in DB
     const [result] = await group_messages.execute(
       "INSERT INTO group_messages (group_id, sender_id, message, message_type) VALUES (?, ?, ?, ?)",
-      [groupId, sender_id, message, message_type]
+      [groupId, sender_id, mesgText, message_type]
     );
-
     const newGroupMessage = {
       id: result.insertId,
       sender_id,
       group_id: groupId,
-      message,
+      message: mesgText,
       message_type,
       created_at: new Date(),
     };
@@ -147,9 +147,9 @@ export const SendGroupMessage = async (req, res) => {
     console.log(`Emitted message to room group ${groupId}`);  
      //  console.log(newGroupMessage); 
  
-    res.json({
+    return res.json({
       success: true,
-      message: "Group message sent successfully",
+      // message: "Group message sent successfully",
       newGroupMessage,
     });
   } catch (error) {
@@ -241,7 +241,7 @@ export const GetGroupMessages = async (req, res) => {
     // ------------------------------
     // ✅ Respond with messages
     // ------------------------------
-    res.json({
+    return res.json({
       success: true,
       isAdmin,
       messages: messages || [],

@@ -118,13 +118,6 @@ export const otpVerify = async (req, res) => {
       [phone_number]
     );
 
-    // Emit Online status instantly via Socket.IO
-    // if (global.io) {
-    //   global.io.emit("status_update", {
-    //     phone_number,
-    //     status: "Online"
-    //   });
-    // }
     // Emit Online status instantly
     const receiverSocketId = getReceiverSocketId(phone_number);
     if (receiverSocketId) {
@@ -139,7 +132,7 @@ export const otpVerify = async (req, res) => {
       { phone_number, status: "active", id: rows[0].id },
       process.env.JWT_SECRET,
       {
-        expiresIn: "1d",
+        expiresIn: "7d",
       }
     );
 

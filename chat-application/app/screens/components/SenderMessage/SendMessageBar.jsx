@@ -333,7 +333,6 @@
 // };
 
 // export default SendMessageBar;
-
 import React, { useEffect, useState } from "react";
 import {
   View,
@@ -358,10 +357,19 @@ import AudioPicker from "../AudioPicker/AudioPicker";
 import ContactsModal from "../Contacts/Contacts";
 import useVoiceRecorder from "../VoiceRecorder/VoiceRecorder";
 import mimeTypeMap from "./memtype";
-const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
-  const [attachmentOptionsVisible, setAttachmentOptionsVisible] =
-    useState(false);
-  const [messageText, setMessageText] = useState("");
+
+const SendMessageBar = ({
+  handleGetMessage,
+  type,
+  GroupDetails,
+  messageText,
+  setMessageText,
+  editingMessageId,
+  cancelEditing,
+  onSend,
+  user,
+}) => {
+  const [attachmentOptionsVisible, setAttachmentOptionsVisible] = useState(false);
   const [galleryVisible, setGalleryVisible] = useState(false);
   const [documentVisible, setDocumentVisible] = useState(false);
   const [contactsVisible, setContactsVisible] = useState(false);
@@ -369,117 +377,24 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
 
   const dispatch = useDispatch();
   const myId = useSelector((state) => state.auth?.user?.id);
-  const { user } = useLocalSearchParams();
-  const parsedUser = user ? JSON.parse(user) : null;
+  const paramsUser = useLocalSearchParams().user;
+  const parsedUser = paramsUser ? JSON.parse(paramsUser) : user;
 
-  const onSend = async (messageData) => {
-    try {
-      const token = await SecureStore.getItemAsync("token");
-      const socket = getSocket();
+  // ✅ Handle sending message or editing
+  const handleSendMessage = async () => {
+    if (!messageText.trim()) return;
 
-      let fileUrl = null;
-
-      if (messageData?.uri) {
-        const fileForm = new FormData();
-        const uriParts = messageData.uri.split(".");
-        const fileType = uriParts[uriParts.length - 1];
-        fileForm.append("media_url", {
-          uri: messageData.uri,
-          name: `upload.${fileType}`,
-          type:
-            messageData.mimeType ||
-            mimeTypeMap[fileType] ||
-            `application/${fileType}`,
-        });
-        if (messageData.duration) {
-          fileForm.append("duration", messageData.duration.toString());
-        }
-        const uploadRes = await axios.post(
-          `${process.env.EXPO_API_URL}/messages/upload`,
-          fileForm,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-              "Content-Type": "multipart/form-data",
-            },
-          }
-        );
-        console.log("uploadRes", uploadRes.data);
-
-        if (uploadRes.data?.fileUrl) {
-          console.log("✅ Successfully uploaded:", uploadRes.data);
-          fileUrl = uploadRes.data.fileUrl;
-          Alert.alert("Upload Success", "File uploaded successfully.");
-        } else {
-          Alert.alert("Upload Error", "File upload failed.");
-          return;
-        }
-      }
-      console.log("====================================");
-      console.log("dsffium", fileUrl);
-      console.log("====================================");
-
-      const msgData = {
-        message: messageData?.text || messageText || "",
-        message_type: messageData?.type || (fileUrl ? "media" : "text"),
-        media_url: fileUrl,
-        created_at: new Date().toISOString(),
-        myId,
-      };
-
-      if (type === "single") {
-        msgData.receiver_id = parsedUser?.id;
-      } else if (type === "group") {
-        msgData.groupId = GroupDetails?.id;
-      } else {
-        Alert.alert("Error", "Invalid chat type");
-        return;
-      }
-      // 🔹 Step 3: Send message in real-time via socket
-      if (socket) {
-        const event = type === "group" ? "groupNewMessage" : "newMessage";
-        socket.emit(event, msgData);
-      }
-
-      //     // 🔹 Step 4: Optimistically update chat
-      dispatch(pushNewMessage(msgData));
-      setMessageText("");
-
-      const url =
-        type === "single"
-          ? `${process.env.EXPO_API_URL}/messages`
-          : `${process.env.EXPO_API_URL}/groups/send/messages`;
-
-      try {
-        const response = await axios.post(url, msgData, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-
-        if (response.data.success && typeof handleGetMessage === "function") {
-          Alert.alert("Message Sent", "Message sent successfully.");
-          handleGetMessage();
-        }
-      } catch (error) {
-        console.log("====================================");
-        Alert.alert(error.response?.data || error.message || "Server Error");
-        console.log("====================================");
-      }
-    } catch (error) {
-      console.log("error", error);
-
-      console.log("====================================");
-      Alert.alert("❌ Upload Error:", error.response?.data || error.message);
-      console.log("====================================");
+    if (editingMessageId) {
+      // Editing existing message
+      await onSend({ text: messageText, id: editingMessageId, type: "text" });
+      cancelEditing();
+    } else {
+      // Sending new message
+      await onSend({ text: messageText, type: "text" });
     }
   };
 
-  // ✅ Handle text message send
-  const handleSendMessage = async () => {
-    if (!messageText.trim()) return;
-    await onSend({ text: messageText, type: "text" });
-  };
-
-  // ✅ Handle mic (voice)
+  // ✅ Handle mic (voice) messages
   const handleMicPress = async () => {
     if (!recording) {
       await startRecording();
@@ -488,14 +403,14 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
       if (voiceMessage) {
         await onSend({
           type: "audio",
-          fileUrl: voiceMessage.uri,
+          uri: voiceMessage.uri,
           mimeType: "audio/m4a",
         });
       }
     }
   };
 
-  // ✅ Handle socket listeners
+  // ✅ Handle socket new messages (optional, can remove if already handled globally)
   useEffect(() => {
     const socket = getSocket();
     if (!socket) return;
@@ -545,8 +460,6 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
               onPress={() =>
                 CameraPicker((imageMessage) => {
                   onSend(imageMessage);
-                  console.log("imageMessage", imageMessage);
-
                   setAttachmentOptionsVisible(false);
                 })
               }
@@ -571,6 +484,8 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
             <GalleryPicker
               visible={galleryVisible}
               onSend={(imageMessage) => {
+                console.log("hahaha img msg",imageMessage);
+                
                 onSend(imageMessage);
               }}
               onClose={() => setGalleryVisible(false)}
@@ -584,9 +499,7 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
               <View className="w-14 h-14 bg-yellow-100 rounded-full justify-center items-center mb-1">
                 <Feather name="file-text" size={22} color="#d97706" />
               </View>
-              <Text className="text-xs text-center text-gray-700">
-                Document
-              </Text>
+              <Text className="text-xs text-center text-gray-700">Document</Text>
             </TouchableOpacity>
 
             <DocumentPickerModal
@@ -664,10 +577,10 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
         {/* Input */}
         <TextInput
           className="flex-1 text-base mx-2 text-[#111] py-1"
-          placeholder="Type a message..."
+          placeholder={editingMessageId ? "Edit message..." : "Type a message..."}
           placeholderTextColor="#888"
-          value={messageText}
-          onChangeText={setMessageText}
+          value={messageText} // use prop
+          onChangeText={setMessageText} // use prop
           multiline
           onFocus={() => setAttachmentOptionsVisible(false)}
         />
@@ -695,3 +608,4 @@ const SendMessageBar = ({ handleGetMessage, type, GroupDetails }) => {
 };
 
 export default SendMessageBar;
+
