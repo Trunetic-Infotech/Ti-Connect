@@ -487,6 +487,8 @@ const SendMessageBar = ({
                 console.log("hahaha img msg",imageMessage);
                 
                 onSend(imageMessage);
+                  setAttachmentOptionsVisible(false);
+
               }}
               onClose={() => setGalleryVisible(false)}
             />

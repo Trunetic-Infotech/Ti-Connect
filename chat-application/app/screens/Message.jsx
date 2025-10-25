@@ -36,6 +36,7 @@ const Message = () => {
   const [isBlocked, setIsBlocked] = useState(false);
   const [wallpaperUri, setWallpaperUri] = useState(null);
   const [type, setType] = useState("single");
+  const [isLoading, setIsLoading] = useState(false);
 
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
@@ -257,6 +258,7 @@ const handleSend = async (media) => {
   if (!messageText.trim() && !media) return;
 
   try {
+    setIsLoading(true);
     const token = await SecureStore.getItemAsync("token");
     if (!token) return Alert.alert("Error", "No token found");
 
@@ -379,6 +381,8 @@ const handleSend = async (media) => {
   } catch (err) {
     console.error("❌ Send message error:", err.message);
     if (err.response) console.log("Server response:", err.response.data);
+  }finally{
+    setIsLoading(false);
   }
 };
 
@@ -471,6 +475,7 @@ const handleSend = async (media) => {
                   wallpaperUri={wallpaperUri}
                   onDeleteMessage={deleteSelectedMessages} // For real-time delete
                   onEditMessage={editSelectedMessage} // For real-time edit
+                  isLoading={isLoading}
                 />
               ) : (
                 <View>

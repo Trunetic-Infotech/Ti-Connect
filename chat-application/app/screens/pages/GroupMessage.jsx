@@ -194,43 +194,104 @@ useEffect(() => {
     }
   };
 
-  const handleSend = async (message) => {
-    try {
-      if (editingMessageId && message.type === "text") {
-        // Update existing message
-        await axios.put(
-          `${process.env.EXPO_API_URL}/messages/${editingMessageId}`,
-          { text: message.text }
-        );
+const handleSend = async (message) => {
+  try {
+    const token = await SecureStore.getItemAsync("token");
+    if (!token) return Alert.alert("Error", "No token found");
+
+    let res;
+
+    // 🟩 Editing existing text message
+    if (editingMessageId && message.type === "text") {
+      res = await axios.put(
+        `${process.env.EXPO_API_URL}/messages/${editingMessageId}`,
+        { text: message.text },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (res.data.success) {
         setMessages((prev) =>
           prev.map((msg) =>
-            msg.id === editingMessageId ? { ...msg, text: message.text } : msg
+            msg.id === editingMessageId
+              ? { ...msg, text: message.text, isEdited: true }
+              : msg
           )
         );
-        setEditingMessageId(null);
-        setMessageText("");
-      } else {
-        // Send new message
-        const token = await SecureStore.getItemAsync("token");
-              if (!token) return Alert.alert("Error", "No token found");
-        const res = await axios.post(
-          `${process.env.EXPO_API_URL}/groups/send/messages`,
-          {message, groupId: GroupDetails.id},
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
-        setMessages((prev) => [res.data.newGroupMessage, ...prev]);
-
-        setTimeout(
-          () =>
-            flatListRef.current?.scrollToOffset({ offset: 0, animated: true }),
-          100
-        );
-        if (message.type === "text") setMessageText("");
       }
-    } catch (err) {
-      console.error("Send failed:", err);
+
+      setEditingMessageId(null);
+      setMessageText("");
+      return;
     }
-  };
+
+    // 🟨 Sending new message (text or media)
+    const API_URL =
+      message.type !== "text"
+        ? "/groups/send/messages/upload"
+        : "/groups/send/messages";
+
+    // 🧾 Prepare data
+    if (message.type === "text") {
+      // 🔹 Send plain text
+      res = await axios.post(
+        `${process.env.EXPO_API_URL}${API_URL}`,
+        {
+          message: message.text,
+          groupId: GroupDetails.id,
+        },
+        {
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    } else {
+      // 🔹 Send image or video
+      const formData = new FormData();
+      if (message.type === "image") {
+        formData.append("media_url", {
+          uri: message.uri,
+          name: `photo_${Date.now()}.jpg`,
+          type: "image/jpeg",
+        });
+      } else if (message.type === "video") {
+        formData.append("media_url", {
+          uri: message.uri,
+          name: `video_${Date.now()}.mp4`,
+          type: "video/mp4",
+        });
+      }
+      formData.append("groupId", String(GroupDetails.id));
+
+      res = await axios.post(
+        `${process.env.EXPO_API_URL}${API_URL}`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+    }
+
+    // ✅ Update UI instantly
+    if (res?.data?.newGroupMessage) {
+      setMessages((prev) => [...prev, res.data.newGroupMessage]);
+      setTimeout(() => {
+        flatListRef.current?.scrollToEnd({ animated: true });
+      }, 100);
+    }
+
+    if (message.type === "text") setMessageText("");
+  } catch (err) {
+    console.error("❌ Send failed:", err.response?.data || err.message);
+    Alert.alert("Error", "Failed to send message");
+  }
+};
+
 
   const clearChat = async () => {
     try {

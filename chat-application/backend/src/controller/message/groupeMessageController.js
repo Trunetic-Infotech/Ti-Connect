@@ -96,7 +96,79 @@ export const SendGroupMessage = async (req, res) => {
   try {
     const sender_id = req.user.id;
     const { groupId, message, message_type = "text" } = req.body;
+    console.log(req.body, sender_id);
+    
+    if (!groupId || !message) {
+      return res.status(400).json({ error: "Group ID and message are required" });
+    }
 
+    // ✅ Check if group exists
+    const [groupInfo] = await create_groups.execute(
+      "SELECT admin_id FROM create_groups WHERE id = ?",
+      [groupId]
+    );
+
+    if (!groupInfo.length) {
+      return res.status(404).json({ error: "Group not found" });
+    }
+
+    const isAdmin = groupInfo[0].admin_id === sender_id;
+
+    // ✅ Check membership for non-admin
+    let isMember = false;
+    if (!isAdmin) {
+      const [membership] = await group_members.execute(
+        "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Block_Group != 'block' AND Leave_Group != 1",
+        [groupId, sender_id]
+      );
+      isMember = membership.length > 0;
+    }
+
+    if (!isAdmin && !isMember) {
+      return res.status(403).json({ error: "You are not a member of this group" });
+    }
+
+    const mesgText = message;
+    // ✅ Save message in DB
+    const [result] = await group_messages.execute(
+      "INSERT INTO group_messages (group_id, sender_id, message, message_type) VALUES (?, ?, ?, ?)",
+      [groupId, sender_id, mesgText, message_type]
+    );
+    const newGroupMessage = {
+      id: result.insertId,
+      sender_id,
+      group_id: groupId,
+      message: mesgText,
+      message_type,
+      created_at: new Date(),
+    };
+
+    // ✅ Emit message to group via Socket.IO
+    io.to(`group_${groupId}`).emit("groupNewMessage", newGroupMessage);
+    console.log(`Emitted message to room group ${groupId}`);  
+     //  console.log(newGroupMessage); 
+ 
+    return res.json({
+      success: true,
+      // message: "Group message sent successfully",
+      newGroupMessage,
+    });
+  } catch (error) {
+    console.error("❌ Error sending group message:", error);
+    res.status(500).json({ error: "Failed to send group message" });
+  }
+};
+
+
+export const SendGroupMessageUploadController = async (req, res) => {
+  try {
+    const sender_id = req.user.id;
+    const { groupId, message, message_type = "text" } = req.body;
+    console.log(req.body, sender_id);
+
+    console.log(req.file);
+    
+    
     if (!groupId || !message) {
       return res.status(400).json({ error: "Group ID and message are required" });
     }
@@ -157,8 +229,6 @@ export const SendGroupMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to send group message" });
   }
 };
-
-
 
 
 // Get messages for a specific group
