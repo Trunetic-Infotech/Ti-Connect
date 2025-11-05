@@ -1,105 +1,28 @@
-import  group_messages  from "../../config/Database.js";
-import  group_members  from "../../config/Database.js";
-import  create_groups  from "../../config/Database.js";
+import group_messages from "../../config/Database.js";
+import group_members from "../../config/Database.js";
+import create_groups from "../../config/Database.js";
 import cloudinary from "../../utils/images/Cloudinary.js";
 import { io } from "../../utils/socket/socket.js";
-import { getReceiverSocketId } from "../../utils/socket/socket.js";    
 
-// Send a message to a group  members
-// export const SendGroupMessage = async (req, res) => {
-//   try {
-//     const sender_id = req.user.id; // current logged-in user
-//     const { groupId, message, message_type = "text" } = req.body;
-
-//     if (!groupId || !message) {
-//       return res.status(400).json({ error: "Group ID and message are required" });
-//     }
-
-//     // 🔹 First check if user is admin of the group
-//     const [groupInfo] = await create_groups.execute(
-//       "SELECT admin_id FROM create_groups WHERE id = ?",
-//       [groupId]
-//     );
-
-//     if (groupInfo.length === 0) {
-//       return res.status(404).json({ error: "Group not found" });
-//     }
-
-//     const isAdmin = groupInfo[0].admin_id === sender_id;
-
-//     // 🔹 If not admin, check membership
-//     let isMember = false;
-//     if (!isAdmin) {
-//       // Check block
-//       const [blockedRows] = await group_members.execute(
-//         "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Block_Group = ?",
-//         [groupId, sender_id, "block"]
-//       );
-//       if (blockedRows.length > 0) {
-//         return res.status(403).json({ error: "You are blocked in this group" });
-//       }
-
-//       // Check left
-//       const [leftRows] = await group_members.execute(
-//         "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Leave_Group = ?",
-//         [groupId, sender_id, 1]
-//       );
-//       if (leftRows.length > 0) {
-//         return res.status(403).json({ error: "You have left this group" });
-//       }
-
-//       // Check membership
-//       const [groupRows] = await group_members.execute(
-//         "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
-//         [groupId, sender_id]
-//       );
-//       isMember = groupRows.length > 0;
-//     }
-
-//     // ✅ Allow if admin OR member
-//     if (!isAdmin && !isMember) {
-//       return res.status(403).json({ error: "You are not a member of this group" });
-//     }
-
-//     // 🔹 Save message
-//     const [result] = await group_messages.execute(
-//       "INSERT INTO group_messages (group_id, sender_id, message, message_type) VALUES (?, ?, ?, ?)",
-//       [groupId, sender_id, message, message_type]
-//     );
-
-//     const newGroupMessage = {
-//       id: result.insertId,
-//       sender_id: sender_id,
-//       group_id: groupId,
-//       message,
-//       message_type,
-//       created_at: new Date(),
-//     };
-  
-//     // 🔹 Emit to all group members except sender
-//     io.to(`group_${groupId}`).emit("groupNewMessage", newGroupMessage);
-//    console.log("Emitted to group:", `group_${groupId}`, newGroupMessage);
-        
-
-//     res.json({
-//       success: true,
-//       message: "Group message sent successfully",
-//       newGroupMessage,
-//     });
-//   } catch (error) {
-//     console.log("❌ Error sending group message:", error);
-//     res.status(500).json({ error: "Failed to send group message" });
-//   }
-// };
-
+// Send a message to a group
 export const SendGroupMessage = async (req, res) => {
   try {
     const sender_id = req.user.id;
-    const { groupId, message, message_type = "text" } = req.body;
-    console.log(req.body, sender_id);
-    
-    if (!groupId || !message) {
-      return res.status(400).json({ error: "Group ID and message are required" });
+    const {
+      groupId,
+      message = null,
+      message_type = "text" || "contact",
+      contact_details = null,
+      media_url = null,
+    } = req.body;
+
+    console.log("asasdas", req.body);
+
+    // 🧩 Validation
+    if (!groupId) {
+      return res
+        .status(400)
+        .json({ success: false, error: "Group ID is required" });
     }
 
     // ✅ Check if group exists
@@ -109,12 +32,12 @@ export const SendGroupMessage = async (req, res) => {
     );
 
     if (!groupInfo.length) {
-      return res.status(404).json({ error: "Group not found" });
+      return res.status(404).json({ success: false, error: "Group not found" });
     }
 
     const isAdmin = groupInfo[0].admin_id === sender_id;
 
-    // ✅ Check membership for non-admin
+    // ✅ Check if user is a member (if not admin)
     let isMember = false;
     if (!isAdmin) {
       const [membership] = await group_members.execute(
@@ -125,111 +48,116 @@ export const SendGroupMessage = async (req, res) => {
     }
 
     if (!isAdmin && !isMember) {
-      return res.status(403).json({ error: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ success: false, error: "You are not a member of this group" });
     }
 
-    const mesgText = message;
+    // 📝 Prepare message data
+    const msgText = message || null;
+    const contactData =
+      contact_details && typeof contact_details === "object"
+        ? JSON.stringify(contact_details)
+        : contact_details;
+
     // ✅ Save message in DB
     const [result] = await group_messages.execute(
-      "INSERT INTO group_messages (group_id, sender_id, message, message_type) VALUES (?, ?, ?, ?)",
-      [groupId, sender_id, mesgText, message_type]
+      "INSERT INTO group_messages (group_id, sender_id, message, message_type, contact_details, media_url) VALUES (?, ?, ?, ?, ?, ?)",
+      [groupId, sender_id, msgText, message_type, contactData, media_url]
     );
+
+    // ✅ Construct new message object
     const newGroupMessage = {
       id: result.insertId,
       sender_id,
       group_id: groupId,
-      message: mesgText,
+      message: msgText,
       message_type,
+      contact_details: contact_details || null,
+      media_url: media_url || null,
       created_at: new Date(),
+      isSender: true,
     };
 
-    // ✅ Emit message to group via Socket.IO
+    // ✅ Emit message via Socket.IO to all group members
     io.to(`group_${groupId}`).emit("groupNewMessage", newGroupMessage);
-    console.log(`Emitted message to room group ${groupId}`);  
-     //  console.log(newGroupMessage); 
- 
+    console.log(`📡 Emitted message to group_${groupId}`, newGroupMessage);
+
+    // ✅ Send response
     return res.json({
       success: true,
-      // message: "Group message sent successfully",
       newGroupMessage,
     });
   } catch (error) {
     console.error("❌ Error sending group message:", error);
-    res.status(500).json({ error: "Failed to send group message" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to send group message" });
   }
 };
-
 
 export const SendGroupMessageUploadController = async (req, res) => {
+  // console.log(req.file);
+  // console.log(req.files);
+  // console.log("Hello");
+  // console.log(req.user);
+  // console.log(req.body);
+
   try {
-    const sender_id = req.user.id;
-    const { groupId, message, message_type = "text" } = req.body;
-    console.log(req.body, sender_id);
-
-    console.log(req.file);
-    
-    
-    if (!groupId || !message) {
-      return res.status(400).json({ error: "Group ID and message are required" });
+    if (!req.files || req.files.length === 0) {
+      return res
+        .status(400)
+        .json({ success: false, message: "No file uploaded" });
     }
+    // console.log(req.files);
 
-    // ✅ Check if group exists
-    const [groupInfo] = await create_groups.execute(
-      "SELECT admin_id FROM create_groups WHERE id = ?",
-      [groupId]
-    );
-
-    if (!groupInfo.length) {
-      return res.status(404).json({ error: "Group not found" });
-    }
-
-    const isAdmin = groupInfo[0].admin_id === sender_id;
-
-    // ✅ Check membership for non-admin
-    let isMember = false;
-    if (!isAdmin) {
-      const [membership] = await group_members.execute(
-        "SELECT * FROM group_members WHERE group_id = ? AND user_id = ? AND Block_Group != 'block' AND Leave_Group != 1",
-        [groupId, sender_id]
-      );
-      isMember = membership.length > 0;
-    }
-
-    if (!isAdmin && !isMember) {
-      return res.status(403).json({ error: "You are not a member of this group" });
-    }
-
-    const mesgText = message.text;
-    // ✅ Save message in DB
-    const [result] = await group_messages.execute(
-      "INSERT INTO group_messages (group_id, sender_id, message, message_type) VALUES (?, ?, ?, ?)",
-      [groupId, sender_id, mesgText, message_type]
-    );
-    const newGroupMessage = {
-      id: result.insertId,
-      sender_id,
-      group_id: groupId,
-      message: mesgText,
-      message_type,
-      created_at: new Date(),
+    // Determine media type
+    const getType = (file) => {
+      if (file.mimetype.startsWith("image/")) return "image";
+      if (file.mimetype.startsWith("video/")) return "video";
+      if (file.mimetype.startsWith("audio/")) return "audio";
+      if (file.mimetype === "application/pdf" || file.mimetype === "image/pdf")
+        return "document";
+      if (file.mimetype === "contact") return "contact";
+      return "file";
     };
 
-    // ✅ Emit message to group via Socket.IO
-    io.to(`group_${groupId}`).emit("groupNewMessage", newGroupMessage);
-    console.log(`Emitted message to room group ${groupId}`);  
-     //  console.log(newGroupMessage); 
- 
-    return res.json({
+    const fileTypes = req.files.map(getType);
+    const hasVideo = fileTypes.includes("video");
+    const hasAudio = fileTypes.includes("audio");
+    // console.log(fileTypes[0]);
+
+    // Restrict multiple video/audio uploads
+    if ((hasVideo || hasAudio) && req.files.length > 1) {
+      return res.status(400).json({
+        error: "You can upload only one video or one audio file at a time.",
+      });
+    }
+    const newGroupMessage = await group_messages.execute(
+      `INSERT INTO group_messages (group_id, sender_id, message, message_type, media_url) VALUES (?, ?, ?, ?, ?)`,
+      [req.body.groupId, req.user.id, null, fileTypes[0], req.files[0].path]
+    );
+
+    const uploadedFiles = req.files.map((file) => ({
+      url: file.path, // for Cloudinary: use file.path or file.secure_url
+      type: file.mimetype,
+      filename: file.filename,
+    }));
+
+     io.to(`group_${req.body.groupId}`).emit("groupNewMessage", newGroupMessage);
+    console.log(`📡 Emitted message to group_${req.body.groupId}`, newGroupMessage);
+
+    return res.status(200).json({
       success: true,
-      // message: "Group message sent successfully",
-      newGroupMessage,
+      message: "File(s) uploaded successfully",
+      fileUrl: uploadedFiles[0].url, // for single upload
+      files: uploadedFiles, // keep all if you need multi-upload later
     });
-  } catch (error) {
-    console.error("❌ Error sending group message:", error);
-    res.status(500).json({ error: "Failed to send group message" });
+  } catch (err) {
+    console.error("Upload error:", err);
+    res.status(500).json({ success: false, message: err.message });
   }
 };
-
 
 // Get messages for a specific group
 export const GetGroupMessages = async (req, res) => {
@@ -283,7 +211,9 @@ export const GetGroupMessages = async (req, res) => {
     );
 
     if (groupRows.length === 0) {
-      return res.status(403).json({ error: "You are not a member of this group" });
+      return res
+        .status(403)
+        .json({ error: "You are not a member of this group" });
     }
 
     // User is considered admin if they are the admin_id
@@ -303,11 +233,11 @@ export const GetGroupMessages = async (req, res) => {
       [groupId]
     );
 
-      // ------------------------------
-       io.to(`group_${groupId}`).emit("groupNewMessage", messages);
+    // ------------------------------
+    io.to(`group_${groupId}`).emit("groupNewMessage", messages);
     console.log(`Emitted message to room group ${groupId}`);
- console.log(messages); 
-     
+    console.log(messages);
+
     // ------------------------------
     // ✅ Respond with messages
     // ------------------------------
@@ -316,7 +246,6 @@ export const GetGroupMessages = async (req, res) => {
       isAdmin,
       messages: messages || [],
     });
-
   } catch (error) {
     console.error("❌ Error fetching group messages:", error);
     res.status(500).json({ error: "Failed to fetch group messages" });
@@ -327,20 +256,19 @@ export const GetGroupMessages = async (req, res) => {
 // export const GetGroupMessages = async (req, res) => {
 //   try {
 //     const sender_id = req.user.id; // Current logged-in user
-//     const { groupId, page = 1, limit = 20 } = req.query;
+//     const { groupId } = req.query;
 
-//     console.log(`Fetching messages for group ID: ${groupId} by user ID: ${sender_id}, page: ${page}, limit: ${limit}`);
+//     let { page = 1, limit = 35 } = req.query; // ✅ Default limit = 15
+//     page = parseInt(page);
+//     limit = parseInt(limit);
+//     const offset = (page - 1) * limit;
 
-//     // ------------------------------
 //     // ✅ Validate input
-//     // ------------------------------
 //     if (!groupId) {
 //       return res.status(400).json({ error: "Group ID is required" });
 //     }
 
-//     // ------------------------------
 //     // ✅ Check if the user is blocked in the group
-//     // ------------------------------
 //     const [blockedRows] = await group_members.execute(
 //       `SELECT * 
 //        FROM group_members 
@@ -351,9 +279,7 @@ export const GetGroupMessages = async (req, res) => {
 //       return res.status(403).json({ error: "You are blocked in this group" });
 //     }
 
-//     // ------------------------------
 //     // ✅ Check if the user has left the group
-//     // ------------------------------
 //     const [leftRows] = await group_members.execute(
 //       `SELECT * 
 //        FROM group_members 
@@ -364,9 +290,7 @@ export const GetGroupMessages = async (req, res) => {
 //       return res.status(403).json({ error: "You have left this group" });
 //     }
 
-//     // ------------------------------
 //     // ✅ Check if the user is a member or the admin
-//     // ------------------------------
 //     const [groupRows] = await group_members.execute(
 //       `SELECT gm.*, cg.admin_id
 //        FROM create_groups cg
@@ -377,62 +301,60 @@ export const GetGroupMessages = async (req, res) => {
 //     );
 
 //     if (groupRows.length === 0) {
-//       return res.status(403).json({ error: "You are not a member of this group" });
+//       return res
+//         .status(403)
+//         .json({ error: "You are not a member of this group" });
 //     }
 
 //     const isAdmin = groupRows[0].admin_id === sender_id;
-//     console.log("Group membership verified. Is Admin:", isAdmin);
 
-//     // ------------------------------
-//     // ✅ Pagination setup
-//     // ------------------------------
-//     const offset = (page - 1) * limit;
+//     // ✅ Fetch total count for pagination
+//     const [countResult] = await group_messages.execute(
+//       `SELECT COUNT(*) AS total FROM group_messages WHERE group_id = ?`,
+//       [groupId]
+//     );
+//     const totalMessages = countResult[0].total;
+//     const totalPages = Math.ceil(totalMessages / limit);
 
-//     // ------------------------------
-//     // ✅ Fetch paginated messages with sender details
-//     // ------------------------------
+//     // ✅ Fetch messages with LIMIT + OFFSET
 //     const [messages] = await group_messages.execute(
 //       `SELECT gm.*, u.username, u.profile_picture, u.status AS user_status
 //        FROM group_messages gm
 //        JOIN users u ON gm.sender_id = u.id
 //        WHERE gm.group_id = ?
-//        ORDER BY gm.created_at ASC
-//        LIMIT ${limit}  OFFSET ${offset} `,
-//       [groupId, parseInt(limit), parseInt(offset)]
+//        ORDER BY gm.created_at DESC
+//        LIMIT ${limit} OFFSET ${offset}`,
+//       [groupId]
 //     );
 
-//     // ------------------------------
-//     // ✅ Add isSender flag for frontend
-//     // ------------------------------
-//     const formattedMessages = messages.map(msg => ({
-//       ...msg,
-//       isSender: msg.sender_id === sender_id
-//     }));
+//     // ✅ Emit live updates only for new messages (not for fetching old)
+//     if (page === 1) {
+//       io.to(`group_${groupId}`).emit("groupNewMessage", messages);
+//       console.log(`Emitted messages to room group_${groupId}`);
+//     }
 
-//     // ------------------------------
-//     // ✅ Respond with messages
-//     // ------------------------------
-//     res.json({
+//     // ✅ Return paginated response
+//     return res.json({
 //       success: true,
 //       isAdmin,
-//       messages: formattedMessages,
-//       page: parseInt(page),
-//       limit: parseInt(limit),
-//       totalMessages: messages.length
+//       page,
+//       limit,
+//       totalMessages,
+//       totalPages,
+//       messages: messages.reverse(), // Reverse so oldest appears first in UI
 //     });
-
 //   } catch (error) {
 //     console.error("❌ Error fetching group messages:", error);
 //     res.status(500).json({ error: "Failed to fetch group messages" });
 //   }
 // };
 
-
 // Update a group message
-export const UpdateGroupMessage = async (req, res) => { 
+
+export const UpdateGroupMessage = async (req, res) => {
   try {
     const userId = req.user.id; // current logged-in user
-    const { id, groupId } = req.params;
+    const { id } = req.params;
     const { message, message_type = "text" } = req.body;
 
     if (!id || !message) {
@@ -449,14 +371,18 @@ export const UpdateGroupMessage = async (req, res) => {
     );
 
     if (existingMessageRows.length === 0) {
-      return res.status(404).json({ success: false, message: "Message not found" });
+      return res
+        .status(404)
+        .json({ success: false, message: "Message not found" });
     }
 
     const { sender_id, created_at } = existingMessageRows[0];
 
     // 🔹 Only sender can update
     if (sender_id !== userId) {
-      return res.status(403).json({ error: "You can only update your own messages" });
+      return res
+        .status(403)
+        .json({ error: "You can only update your own messages" });
     }
 
     // 🔹 Check if the message is within 15 minutes
@@ -472,10 +398,13 @@ export const UpdateGroupMessage = async (req, res) => {
     }
 
     // 🔹 Update the message
-    await group_messages.execute(
+    const [GroupMessageUpdated] = await group_messages.execute(
       "UPDATE group_messages SET message = ?, message_type = ? WHERE id = ?",
       [message, message_type, id]
     );
+
+    io.to(`group_${groupId}`).emit("GroupMessageUpdated", GroupMessageUpdated);
+    console.log(`📡 Emitted message to group_${groupId}`, GroupMessageUpdated);
 
     res.json({ success: true, message: "Group message updated successfully" });
   } catch (error) {
@@ -484,15 +413,11 @@ export const UpdateGroupMessage = async (req, res) => {
   }
 };
 
-
-
-
-
 // Delete a group message
 export const DeleteGroupMessage = async (req, res) => {
   try {
     const userId = req.user.id; // current logged-in user
-    const { id } = req.body;
+    const { id, groupId } = req.body;
     if (!id) {
       return res.status(400).json({ error: "Message ID is required" });
     }
@@ -509,7 +434,9 @@ export const DeleteGroupMessage = async (req, res) => {
     const { sender_id, message_type, media_url } = existingMessageRows[0];
 
     if (sender_id !== userId) {
-      return res.status(403).json({ error: "You can only delete your own messages" });
+      return res
+        .status(403)
+        .json({ error: "You can only delete your own messages" });
     }
 
     // 🔹 Delete media from Cloudinary if exists
@@ -522,9 +449,13 @@ export const DeleteGroupMessage = async (req, res) => {
         const publicId = folder ? `${folder}/${fileName}` : fileName;
 
         if (message_type === "image" || message_type === "voice") {
-          await cloudinary.uploader.destroy(publicId, { resource_type: "image" });
+          await cloudinary.uploader.destroy(publicId, {
+            resource_type: "image",
+          });
         } else if (message_type === "video") {
-          await cloudinary.uploader.destroy(publicId, { resource_type: "video" });
+          await cloudinary.uploader.destroy(publicId, {
+            resource_type: "video",
+          });
         }
       } catch (cloudErr) {
         console.log("❌ Error deleting media from Cloudinary:", cloudErr);
@@ -533,7 +464,13 @@ export const DeleteGroupMessage = async (req, res) => {
     }
 
     // 🔹 Delete the message from the database
-    await group_messages.execute("DELETE FROM group_messages WHERE id = ?", [id]);
+    const [DeleteGroupMessage] = await group_messages.execute(
+      "DELETE FROM group_messages WHERE id = ?",
+      [id]
+    );
+
+    io.to(`group_${groupId}`).emit("DeleteGroupMessage", DeleteGroupMessage);
+    console.log(`📡 Emitted message to group_${groupId}`, DeleteGroupMessage);
 
     res.json({ success: true, message: "Group message deleted successfully" });
   } catch (error) {
@@ -541,77 +478,3 @@ export const DeleteGroupMessage = async (req, res) => {
     res.status(500).json({ error: "Failed to delete group message" });
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

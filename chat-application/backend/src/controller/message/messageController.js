@@ -6,9 +6,7 @@ import { getReceiverSocketId, io } from "../../utils/socket/socket.js";
 export const SendMessage = async (req, res) => {
   try {
     const sender_id = req.user.id; // ✅ fix destructuring
-    console.log('====================================');
-    console.log(req.body);
-    console.log('====================================');
+
     const { receiver_id, message, message_type = "text", media_url,duration ,is_read, status, contact_details } = req.body;
 
     // console.log("data",sender_id);
@@ -81,7 +79,7 @@ export const MarkMessageDelivered = async (req, res) => {
       [messageId]
     );
     const message = rows[0];
-    console.log(message);
+    // console.log(message);
     
 
     // Get sender socket
@@ -115,9 +113,14 @@ export const MarkMessageRead = async (req, res) => {
       [messageId]
     );
 
+        if (!rows || rows.length === 0) {
+      console.warn(`⚠️ No message found with id ${messageId}`);
+      return res.status(404).json({ error: "Message not found" });
+    }
+
     const message = rows[0];
    
-    console.log(message);
+    // console.log(message);
     
     const senderSocketId = getReceiverSocketId(message.sender_id);
     if (senderSocketId) {
@@ -139,7 +142,7 @@ export const GetMessages = async (req, res) => {
   try {
     const myId = req.user.id;
     const { receiver_id } = req.query; // use query params for GET
-    console.log(receiver_id, myId);
+    // console.log(receiver_id, myId);
 
     if (!receiver_id) {
       return res.status(400).json({ error: "Receiver ID is required" });
@@ -206,7 +209,7 @@ export const UpdateMessage = async (req, res) => {
     const {  message, message_type = "text" } = req.body;
     const {messageId} = req.params;
     
-    console.log(req.body);
+    // console.log(req.body);
     
 
     if (!messageId || !message) {
@@ -331,7 +334,7 @@ export const UploadMedia = async (req, res) => {
     if (!req.files || req.files.length === 0) {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
-    console.log(req.files);
+    // console.log(req.files);
     
 
     // Determine media type

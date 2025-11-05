@@ -11,38 +11,21 @@ import {
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Feather, FontAwesome5 } from "@expo/vector-icons";
 import { useNavigation } from "@react-navigation/native";
-import logoImg from "../../../assets/images/Chat-Logo.png";
 import { useRouter } from "expo-router";
-
-const initialChats = [
-  {
-    id: 1,
-    name: "Aman Verma",
-    text: "I am good, what about you?",
-    time: "10:00 AM",
-    unread: 1,
-  },
-  {
-    id: 2,
-    name: "John Doe",
-    text: "Let's connect later today.",
-    time: "9:45 AM",
-    unread: 4,
-  },
-];
+import logoImg from "../../../assets/images/Chat-Logo.png";
 
 const UnRead = () => {
   const [search, setSearch] = useState("");
-  const [chats, setChats] = useState(initialChats);
+  const [chats, setChats] = useState([]); // empty initially (no dummy data)
   const navigation = useNavigation();
   const router = useRouter();
 
-  // Filter only unread chats
+  // Filter unread chats dynamically
   const filteredChats = chats.filter(
     (chat) =>
       chat.unread > 0 &&
-      (chat.name.toLowerCase().includes(search.toLowerCase()) ||
-        chat.text.toLowerCase().includes(search.toLowerCase()))
+      (chat.name?.toLowerCase().includes(search.toLowerCase()) ||
+        chat.text?.toLowerCase().includes(search.toLowerCase()))
   );
 
   // delete chat function
@@ -113,34 +96,40 @@ const UnRead = () => {
         contentContainerStyle={{ paddingBottom: 120 }}
       >
         <View className="space-y-4 gap-3">
-          {filteredChats.map((chat) => (
-            <TouchableOpacity
-              key={chat.id}
-              onPress={() => router.push("/screens/Message")}
-              onLongPress={() => confirmDelete(chat.id)}
-              delayLongPress={400}
-              activeOpacity={0.9}
-              className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
-            >
-              <View className="flex-row items-center gap-4">
-                <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
-                <View>
-                  <Text className="text-lg font-semibold text-gray-800">
-                    {chat.name}
-                  </Text>
-                  <Text className="text-sm text-gray-500">{chat.text}</Text>
+          {filteredChats.length > 0 ? (
+            filteredChats.map((chat) => (
+              <TouchableOpacity
+                key={chat.id}
+                onPress={() => router.push("/screens/Message")}
+                onLongPress={() => confirmDelete(chat.id)}
+                delayLongPress={400}
+                activeOpacity={0.9}
+                className="flex-row justify-between items-center bg-white px-4 py-4 rounded-2xl shadow-sm border border-gray-200"
+              >
+                <View className="flex-row items-center gap-4">
+                  <FontAwesome5 name="user-circle" size={44} color="#6366f1" />
+                  <View>
+                    <Text className="text-lg font-semibold text-gray-800">
+                      {chat.name}
+                    </Text>
+                    <Text className="text-sm text-gray-500">{chat.text}</Text>
+                  </View>
                 </View>
-              </View>
-              <View className="items-center">
-                <Text className="text-xs text-gray-400">{chat.time}</Text>
-                {chat.unread > 0 && (
-                  <Text className="text-xs text-blue-900 text-center px-2 py-1 rounded-full bg-blue-100 mt-1">
-                    {chat.unread}
-                  </Text>
-                )}
-              </View>
-            </TouchableOpacity>
-          ))}
+                <View className="items-center">
+                  <Text className="text-xs text-gray-400">{chat.time}</Text>
+                  {chat.unread > 0 && (
+                    <Text className="text-xs text-blue-900 text-center px-2 py-1 rounded-full bg-blue-100 mt-1">
+                      {chat.unread}
+                    </Text>
+                  )}
+                </View>
+              </TouchableOpacity>
+            ))
+          ) : (
+            <Text className="text-center text-gray-500 mt-10">
+              No unread chats available.
+            </Text>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>

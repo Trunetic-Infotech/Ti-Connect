@@ -155,14 +155,14 @@ const Message = () => {
 
     const handleGroupNewMessage = ({ newGroupMessage }) => {
       console.log("this is the New Message in group", newGroupMessage);
-      console.log(
-        "------------------------------------- \nThis is the current chat user \n",
-        currentChatUser
-      );
-      console.log(
-        "------------------------------------- \nThis is the current main user \n",
-        me
-      );
+      // console.log(
+      //   "------------------------------------- \nThis is the current chat user \n",
+      //   currentChatUser
+      // );
+      // console.log(
+      //   "------------------------------------- \nThis is the current main user \n",
+      //   me
+      // );
     };
 
     // 🔹 Register socket listeners
@@ -251,141 +251,152 @@ const Message = () => {
   };
 
   // ------------------ Send Message ------------------
-const handleSend = async (media) => {
-  if (media) {
-    console.log("This is the media we are receiving", media);
-  }
-  if (!messageText.trim() && !media) return;
-
-  try {
-    setIsLoading(true);
-    const token = await SecureStore.getItemAsync("token");
-    if (!token) return Alert.alert("Error", "No token found");
-
-    const API_URL = process.env.EXPO_API_URL;
-    if (!API_URL) {
-      console.error("❌ API URL is undefined!");
-      return;
+  const handleSend = async (media) => {
+    if (media) {
+      console.log("This is the media we are receiving", media);
     }
+    if (!messageText.trim() && !media) return;
 
-    // 🟩 Editing an existing message
-    if (editingMessageId && !media) {
-      const response = await axios.put(
-        `${API_URL}/messages/${editingMessageId}`,
-        { message: messageText },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
+    try {
+      setIsLoading(true);
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return Alert.alert("Error", "No token found");
 
-      if (response.data.success) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === editingMessageId ? response.data.updatedMessage : msg
-          )
-        );
-        cancelSelection();
+      const API_URL = process.env.EXPO_API_URL;
+      if (!API_URL) {
+        console.error("❌ API URL is undefined!");
+        return;
       }
-      return; // stop here
-    }
 
-    // 🟦 If sending media
-    if (media && media.type !== "text") {
-      // 🟨 Handle CONTACT — no upload request
-      if (media.type === "contact") {
-        const contactData = {
-          name: media.name || "Unknown",
-          phone: media.phone || "No phone",
-          email: media.email || "No email",
-        };
-
-        const response = await axios.post(
-          `${API_URL}/messages`,
-          {
-            contact_details: contactData,
-            receiver_id: currentChatUser.id,
-            status: "sent",
-            message_type: "contact",
-          },
+      // 🟩 Editing an existing message
+      if (editingMessageId && !media) {
+        const response = await axios.put(
+          `${API_URL}/messages/${editingMessageId}`,
+          { message: messageText },
           { headers: { Authorization: `Bearer ${token}` } }
         );
 
         if (response.data.success) {
-          setMessages((prev) => [...prev, response.data.newMessage]);
-          setMessageText("");
+          setMessages((prev) =>
+            prev.map((msg) =>
+              msg.id === editingMessageId ? response.data.updatedMessage : msg
+            )
+          );
+          cancelSelection();
         }
-        return; // ✅ stop here — no need to upload
+        return; // stop here
       }
 
-      // 🟩 Otherwise (image/video) → upload first
-      const formData = new FormData();
-      if (media.type === "image") {
-        formData.append("media_url", {
-          uri: media.uri,
-          name: `photo_${Date.now()}.jpg`,
-          type: "image/jpeg",
-        });
-      } else if (media.type === "video") {
-        formData.append("media_url", {
-          uri: media.uri,
-          name: `video_${Date.now()}.mp4`,
-          type: "video/mp4",
-        });
-      }
+      // 🟦 If sending media
+      if (media && media.type !== "text") {
+        // 🟨 Handle CONTACT — no upload request
+        if (media.type === "contact") {
+          const contactData = {
+            name: media.name || "Unknown",
+            phone: media.phone || "No phone",
+            email: media.email || "No email",
+          };
 
-      console.log("Uploading to:", `${API_URL}/messages/upload`);
+          const response = await axios.post(
+            `${API_URL}/messages`,
+            {
+              contact_details: contactData,
+              receiver_id: currentChatUser.id,
+              status: "sent",
+              message_type: "contact",
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
 
-      const res = await axios.post(`${API_URL}/messages/upload`, formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-          Accept: "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-      });
+          if (response.data.success) {
+            setMessages((prev) => [...prev, response.data.newMessage]);
+            setMessageText("");
+          }
+          return; // ✅ stop here — no need to upload
+        }
 
-      console.log("Upload response:", res.data);
+        // 🟩 Otherwise (image/video) → upload first
+        const formData = new FormData();
+        if (media.type === "image") {
+          formData.append("media_url", {
+            uri: media.uri,
+            name: `photo_${Date.now()}.jpg`,
+            type: "image/jpeg",
+          });
+        } else if (media.type === "video") {
+          formData.append("media_url", {
+            uri: media.uri,
+            name: `video_${Date.now()}.mp4`,
+            type: "video/mp4",
+          });
+        } else if (media.type === "audio") {
+          formData.append("media_url", {
+            uri: media.uri,
+            name: `audio_${Date.now()}.mp3`,
+            type: "audio/mpeg",
+          });
+        } else if (media.type === "document") {
+          formData.append("media_url", {
+            uri: media.uri,
+            name: `document_${Date.now()}.pdf`,
+            type: "application/pdf",
+          });
+        }
 
-      if (res.data.success) {
-        const result = await axios.post(
-          `${API_URL}/messages`,
-          {
-            media_url: res.data.fileUrl,
-            receiver_id: currentChatUser.id,
-            status: "sent",
-            message_type: media.type,
+        console.log("Uploading to:", `${API_URL}/messages/upload`);
+
+        const res = await axios.post(`${API_URL}/messages/upload`, formData, {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Accept: "application/json",
+            Authorization: `Bearer ${token}`,
           },
-          { headers: { Authorization: `Bearer ${token}` } }
-        );
+        });
 
-        if (result.data.success) {
-          setMessages((prev) => [...prev, result.data.newMessage]);
-          setMessageText("");
+        console.log("Upload response:", res.data);
+
+        if (res.data.success) {
+          const result = await axios.post(
+            `${API_URL}/messages`,
+            {
+              media_url: res.data.fileUrl,
+              receiver_id: currentChatUser.id,
+              status: "sent",
+              message_type: media.type,
+            },
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+
+          if (result.data.success) {
+            setMessages((prev) => [...prev, result.data.newMessage]);
+            setMessageText("");
+          }
         }
+        return;
       }
-      return;
+
+      // 🟧 Sending plain text
+      const response = await axios.post(
+        `${API_URL}/messages`,
+        {
+          message: messageText,
+          receiver_id: currentChatUser.id,
+          status: "sent",
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      if (response.data.success) {
+        setMessages((prev) => [...prev, response.data.newMessage]);
+        setMessageText("");
+      }
+    } catch (err) {
+      console.error("❌ Send message error:", err.message);
+      if (err.response) console.log("Server response:", err.response.data);
+    } finally {
+      setIsLoading(false);
     }
-
-    // 🟧 Sending plain text
-    const response = await axios.post(
-      `${API_URL}/messages`,
-      {
-        message: messageText,
-        receiver_id: currentChatUser.id,
-        status: "sent",
-      },
-      { headers: { Authorization: `Bearer ${token}` } }
-    );
-
-    if (response.data.success) {
-      setMessages((prev) => [...prev, response.data.newMessage]);
-      setMessageText("");
-    }
-  } catch (err) {
-    console.error("❌ Send message error:", err.message);
-    if (err.response) console.log("Server response:", err.response.data);
-  }finally{
-    setIsLoading(false);
-  }
-};
-
+  };
 
   // ------------------ Clear Chat ------------------
   const clearChat = async () => {
@@ -414,9 +425,10 @@ const handleSend = async (media) => {
     <KeyboardAvoidingView
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 40 : 0}
-      style={{ flex: 1 }}>
+      style={{ flex: 1 }}
+    >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <SafeAreaView className='flex-1 bg-slate-50' edges={["top", "bottom"]}>
+        <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
           {/* Chat Header */}
           <OneToOneChatHeader
             onWallpaperChange={handleWallpaperChange}

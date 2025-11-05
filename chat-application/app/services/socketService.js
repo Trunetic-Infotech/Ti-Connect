@@ -3,7 +3,7 @@ import { io } from "socket.io-client";
 let socket = null;
 
 export const connectSocket = (userId) => {
-  socket = io("http://192.168.1.44:5000", {
+  socket = io("http://192.168.1.55:5000", {
     query: {
       id: userId,
     },

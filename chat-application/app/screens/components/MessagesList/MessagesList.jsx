@@ -55,8 +55,8 @@ const MessageBubble = memo(({
         {/* Chat Bubble */}
         <TouchableWithoutFeedback onLongPress={() => handleLongPress(item)}>
           <View
-            className={`py-2 px-3 rounded-2xl shadow-sm overflow-hidden max-w-[75%] ${
-              isMe ? "bg-indigo-600" : "bg-yellow-300"
+            className={`py-2 px-3 rounded-2xl overflow-hidden max-w-[75%] ${
+              isMe ? "bg-blue-400" : "bg-yellow-300"
             } ${item.message_type === "contact" ? "p-1 max-w-[90%]" : ""}`}
             style={{
               borderBottomRightRadius: isMe ? 4 : 18,
@@ -220,7 +220,10 @@ const MessagesList = ({
   // 🔹 Handle long press for Edit/Delete
   const handleLongPress = (item) => {
     if (!user) return;
-    if (Number(user.id) !== item.receiver_id) {
+    if (Number(user.id) !== item.receiver_id && type === "single") {
+      Alert.alert("You can only edit your own messages.");
+      return;
+    }else if (Number(user.id) === item.receiver_id && type === "group") {
       Alert.alert("You can only edit your own messages.");
       return;
     }
@@ -276,139 +279,6 @@ const MessagesList = ({
   );
 
   const viewabilityConfig = { itemVisiblePercentThreshold: 50 };
-
-  // 🔹 Render message bubble
-  // const renderMessage = ({ item }) => {
-  //   if (!user) return null;
-  //   const isMe =
-  //     type === "single"
-  //       ? item.receiver_id === user.id
-  //       : item.sender_id === user.id; // fixed logic
-  //   const avatar = isMe ? item.sender_image : item.receiver_image;
-  //   const senderName = type === "group" ? item.username?.trim() : null;
-
-  //   return (
-  //     <Animated.View style={{ opacity: 1 }}>
-  //       <View
-  //         className={`max-w-[100%] my-2 flex-row ${
-  //           isMe ? "self-end justify-end" : "self-start justify-start"
-  //         }`}>
-  //         {/* Avatar for received messages */}
-  //         {!isMe &&
-  //           (avatar ? (
-  //             <Image
-  //               source={{ uri: avatar }}
-  //               className='w-8 h-8 rounded-full mr-2'
-  //             />
-  //           ) : (
-  //             <View className='w-8 h-8 rounded-full bg-gray-300 justify-center items-center mr-2'>
-  //               <Text className='text-xs font-bold text-gray-700'>
-  //                 {getInitials(senderName)}
-  //               </Text>
-  //             </View>
-  //           ))}
-
-  //         {/* Chat Bubble */}
-  //         <TouchableWithoutFeedback onLongPress={() => handleLongPress(item)}>
-  //           <View
-  //             className={`py-2 px-3 rounded-2xl shadow-sm overflow-hidden max-w-[75%] ${
-  //               isMe ? "bg-indigo-600" : "bg-yellow-300"
-  //             } ${item.message_type === "contact" ? "p-1 max-w-[90%]" : ""}`}
-  //             style={{
-  //               borderBottomRightRadius: isMe ? 4 : 18,
-  //               borderBottomLeftRadius: isMe ? 18 : 4,
-  //             }}>
-  //             {/* Sender name for group */}
-  //             {!isMe && senderName && (
-  //               <Text className='text-xs font-semibold text-gray-700 mb-1'>
-  //                 {senderName}
-  //               </Text>
-  //             )}
-
-  //             {/* 🟡 Message Types */}
-  //             {item.message_type === "image" ? (
-  //               <TouchableOpacity
-  //                 onPress={() =>
-  //                   setSelectedMedia({ type: "image", uri: item.media_url })
-  //                 }>
-  //                 <Image
-  //                   source={{ uri: item.media_url }}
-  //                   resizeMode='cover'
-  //                   style={{
-  //                     width: screenWidth * 0.55,
-  //                     height: screenWidth * 0.55,
-  //                     borderRadius: 12,
-  //                     backgroundColor: "#e5e7eb",
-  //                   }}
-  //                 />
-  //               </TouchableOpacity>
-  //             ) : item.message_type === "video" ? (
-  //               <MediaItem item={item} onSelect={handleOpenMedia} />
-  //             ) : item.message_type === "audio" ? (
-  //               <TouchableOpacity
-  //                 onPress={() =>
-  //                   setSelectedMedia({
-  //                     type: "audio",
-  //                     uri: item.media_url,
-  //                     duration: item.duration,
-  //                   })
-  //                 }>
-  //                 <VoicePlayer
-  //                   uri={item.media_url}
-  //                   duration={item.duration || 0}
-  //                 />
-  //               </TouchableOpacity>
-  //             ) : item.message_type === "contact" ? (
-  //               <ContactBubble message={item} isOwnMessage={isMe} />
-  //             ) : item.message_type === "document" ? (
-  //               <TouchableOpacity
-  //                 onPress={() =>
-  //                   setSelectedMedia({ type: "document", uri: item.media_url })
-  //                 }>
-  //                 <DocumentViewer uri={item.media_url} />
-  //               </TouchableOpacity>
-  //             ) : (
-  //               <Text
-  //                 className={`${
-  //                   isMe ? "text-white" : "text-gray-800"
-  //                 } text-[15px] leading-5`}>
-  //                 {item.message || "[empty]"}{" "}
-  //                 {item.isEdited && (
-  //                   <Text
-  //                     className={`text-[10px] ${
-  //                       isMe ? "text-white/70" : "text-gray-600"
-  //                     }`}>
-  //                     (edited)
-  //                   </Text>
-  //                 )}
-  //               </Text>
-  //             )}
-
-  //             {/* Time + Status */}
-  //             {item.created_at && (
-  //               <View className='flex-row items-center justify-end mt-1'>
-  //                 <Text
-  //                   className={`text-[10px] ${
-  //                     isMe ? "text-white/60" : "text-gray-600/70"
-  //                   }`}>
-  //                   {formatTime(item.created_at)}
-  //                 </Text>
-
-  //                 {isMe && (
-  //                   <Text className='text-[10px] ml-2 font-semibold text-white/70'>
-  //                     {item.status === "sent" && "Sent"}
-  //                     {item.status === "delivered" && "Delivered"}
-  //                     {item.status === "read" && "Read"}
-  //                   </Text>
-  //                 )}
-  //               </View>
-  //             )}
-  //           </View>
-  //         </TouchableWithoutFeedback>
-  //       </View>
-  //     </Animated.View>
-  //   );
-  // };
 
   const renderMessage = useCallback(
   ({ item }) => {

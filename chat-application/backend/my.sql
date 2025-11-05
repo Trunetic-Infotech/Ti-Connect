@@ -150,3 +150,5 @@ ADD CONSTRAINT fk_sender_user FOREIGN KEY (sender_id) REFERENCES users(id);
 
 
 
+ALTER TABLE group_messages 
+MODIFY COLUMN message TEXT DEFAULT NULL;
