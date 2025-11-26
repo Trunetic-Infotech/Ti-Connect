@@ -5,7 +5,7 @@ import user_invite_links from "../config/Database.js";
 import jwt from "jsonwebtoken";
 import cloudinary from "../utils/images/Cloudinary.js";
 import { io, getReceiverSocketId ,userSocketMap } from "../utils/socket/socket.js";
-import crypto from "crypto";
+import CryptoJS from "crypto-js";
 export const otpSend = async (req, res) => {
   try {
     const { phone_number } = req.params;
@@ -373,6 +373,20 @@ export const getUsersForSidebar = async (req, res) => {
       [id, id]
     );
 
+    const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY || "default_key";
+
+        chatRows.forEach((chat) => {
+      if (chat.message && chat.message_type === "text") {
+        try {
+          const bytes = CryptoJS.AES.decrypt(chat.message, encryptionKey);
+          chat.message = bytes.toString(CryptoJS.enc.Utf8) || " ";
+        } catch (err) {
+          console.error("Decryption error for message ID", chat.id, ":", err);
+          chat.message = "⚠️ [Encrypted]";
+        }
+      }
+    });
+
     // 🔹 Build chat map
     const userChatMap = new Map();
     chatRows.forEach((chat) => {
@@ -383,6 +397,7 @@ export const getUsersForSidebar = async (req, res) => {
       }
       userChatMap.get(otherUserId).push(chat);
     });
+
 
     // Online user IDs from socket map
     const onlineUserIds = new Set(Object.keys(userSocketMap || {}));

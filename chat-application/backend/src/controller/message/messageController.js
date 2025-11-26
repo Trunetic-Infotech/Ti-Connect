@@ -2,7 +2,7 @@ import chat_messages from "../../config/Database.js";
 import users from "../../config/Database.js";
 import cloudinary from "../../utils/images/Cloudinary.js";
 import { getReceiverSocketId, io } from "../../utils/socket/socket.js";
-
+import CryptoJS from "crypto-js";
 export const SendMessage = async (req, res) => {
   try {
     const sender_id = req.user.id; // ✅ fix destructuring
@@ -21,25 +21,42 @@ export const SendMessage = async (req, res) => {
         });
     }
 
+    //Encrypt message Text or contact details other types `media_url` will be used as it is
+    let encryptedMessage = null;
+    let encryptedContactDetails = null;
+    const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY || 'default_key';
+
+    if (message_type === 'text' && message) {
+      encryptedMessage = CryptoJS.AES.encrypt(message, encryptionKey).toString();
+    }
+
+    if (message_type === 'contact' && contact_details) {
+      encryptedContactDetails = CryptoJS.AES.encrypt(JSON.stringify(contact_details), encryptionKey).toString();
+    }
+
     // Save message to database
     const [result] = await chat_messages.execute(
       "INSERT INTO chat_messages (sender_id, receiver_id, message, message_type, media_url,duration ,is_read, status,contact_details) VALUES (?,?, ?, ?, ? , ? , ?, ?, ?)",
-      [sender_id, receiver_id, message || null, message_type, media_url || null, duration || null, is_read || 0, status || 'sent', contact_details || null]
+      [sender_id, receiver_id, encryptedMessage || null, message_type, media_url || null, duration || null, is_read || 0, status || 'sent', contact_details || null]
     );
 
     const newMessage = {
       id: result.insertId,
       sender_id,
       receiver_id,
-      message,
+      message : encryptedMessage || null,
       message_type,
       media_url: media_url || null,
       duration: duration || null,
       is_read: 0,
       created_at: new Date(),
       status: status || "sent",
-      contact_details
+      contact_details : encryptedContactDetails || null,
     };
+
+       // Optionally include decrypted message for sender’s UI
+    if (message_type === "text") newMessage.message = message;
+    if (message_type === "contact") newMessage.contact_details = contact_details;
 
     // ✅ Update sender last_seen_at (active while messaging)
     await users.execute("UPDATE users SET last_seen_at = NOW() WHERE id = ?", [
@@ -153,6 +170,8 @@ export const GetMessages = async (req, res) => {
         .json({ error: "Cannot fetch messages with yourself" });
     }
 
+
+
     const [rows] = await chat_messages.execute(
       `SELECT m.*, 
               sender.username AS sender_name, sender.profile_picture AS sender_image,
@@ -167,23 +186,52 @@ export const GetMessages = async (req, res) => {
     );
 
     // console.log("messages ",rows);
+        const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error("Missing MESSAGE_ENCRYPTION_KEY ");
+    }
 
-    const messages = rows.map((msg) => ({
-      id: msg.id,
-      sender_id: msg.sender_id,
-      receiver_id: msg.receiver_id,
-      message: msg.message,
-      message_type: msg.message_type,
-      media_url: msg.media_url,
-      is_read: msg.is_read,
-      created_at: new Date(msg.created_at).toISOString(),
-      sender_name: msg.sender_name,
-      sender_image: msg.sender_image,
-      receiver_name: msg.receiver_name,
-      receiver_image: msg.receiver_image,
-      status: msg.status,
-      contact_details: msg.contact_details,
-    }));
+        const messages = rows.map((msg) => {
+      let decryptedMessage = msg.message;
+      let decryptedContact = msg.contact_details;
+
+      try {
+        // 🔓 Decrypt text messages
+        if (msg.message_type === "text" && msg.message) {
+          const bytes = CryptoJS.AES.decrypt(msg.message, encryptionKey);
+          decryptedMessage = bytes.toString(CryptoJS.enc.Utf8) || null;
+        }
+
+        // 🔓 Decrypt contact details
+        if (msg.message_type === "contact" && msg.contact_details) {
+          const bytes = CryptoJS.AES.decrypt(msg.contact_details, encryptionKey);
+          const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
+          decryptedContact = decryptedString
+            ? JSON.parse(decryptedString)
+            : null;
+        }
+      } catch (error) {
+        console.error("Decryption error for message ID:", msg.id, error);
+      }
+
+      return {
+        id: msg.id,
+        sender_id: msg.sender_id,
+        receiver_id: msg.receiver_id,
+        message: decryptedMessage,
+        message_type: msg.message_type,
+        media_url: msg.media_url,
+        duration: msg.duration,
+        is_read: msg.is_read,
+        created_at: new Date(msg.created_at).toISOString(),
+        sender_name: msg.sender_name,
+        sender_image: msg.sender_image,
+        receiver_name: msg.receiver_name,
+        receiver_image: msg.receiver_image,
+        status: msg.status,
+        contact_details: decryptedContact,
+      };
+    });
 
     // console.log(messages);
     
@@ -194,6 +242,9 @@ export const GetMessages = async (req, res) => {
       io.to(receiverSocketId).emit("receive_message", messages);
     }
     io.emit("send_message", messages);
+
+    // console.log("kjdfhnsd",messages);
+    // console.log("Decrypted messages being sent:", messages.slice(-2));
 
     res.json({ success: true, messages });
   } catch (error) {
@@ -236,6 +287,21 @@ export const UpdateMessage = async (req, res) => {
         .status(403)
         .json({ error: "Not authorized to edit this message" });
     }
+ 
+    // 🔐 Encrypt updated message
+    const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
+    if (!encryptionKey) {
+      throw new Error("Missing MESSAGE_ENCRYPTION_KEY in .env");
+    }
+
+    let encryptedMessage = null;
+
+    if (message_type === "text" && message) {
+      encryptedMessage = CryptoJS.AES.encrypt(message, encryptionKey).toString();
+    } else {
+      encryptedMessage = message; // for non-text types, just store as is
+    }
+
 
     // ✅ Update message
     await chat_messages.execute(

@@ -69,9 +69,30 @@ const Groups = () => {
   );
 
   // ✅ Delete group locally
-  const handleDeleteGroup = (id) => {
-    setGroups((prev) => prev.filter((group) => group.id !== id));
-  };
+const handleDeleteGroup = async (id) => {
+  const token = await SecureStore.getItemAsync("token");
+
+  try {
+    const response = await axios.delete(
+      `${process.env.EXPO_API_URL}/delete/permanently`,
+      {
+        data: { groupId: id }, // Send correct id
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    console.log("response data", response.data);
+
+    if (response.data?.success) {
+      setGroups((prev) => prev.filter((group) => group.id !== id));
+      Alert.alert("Success", "✅ Group deleted successfully");
+    }
+  } catch (error) {
+    console.log("Delete Error: ", error);
+    Alert.alert("Error", "❌ Error deleting group");
+  }
+};
+
 
   // ✅ Confirm delete alert
   const confirmDelete = (id) => {

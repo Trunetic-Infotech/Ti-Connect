@@ -250,111 +250,111 @@ export const GetGroupMembers = async (req, res) => {
 
 export const LeaveGroups = async (req, res) => {
   try {
-    const user_id = req.user.id;
-    const { groupId } = req.body;
+    const requestUserId = req.user.id;          // who is performing the action
+    const { groupId, user_id } = req.body;      // user_id = who is leaving
 
-    if (!groupId) {
-      return res.status(400).json({ error: "Group ID is required" });
+    console.log("LeaveGroup BODY:", req.body);
+
+    if (!groupId || !user_id) {
+      return res.status(400).json({ error: "Group ID and user ID are required" });
     }
 
-    // ✅ Check membership
+    // 1️⃣ Check membership
     const [memberRows] = await group_members.execute(
       "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
       [groupId, user_id]
     );
 
     if (memberRows.length === 0) {
-      return res
-        .status(403)
-        .json({ error: "User is not a member of this group" });
+      return res.status(403).json({
+        error: "User is not a member of this group",
+      });
     }
 
-    // ✅ Check if user is admin of the group
+    // 2️⃣ Get group info
     const [groupRows] = await create_groups.execute(
       "SELECT admin_id, name FROM create_groups WHERE id = ?",
-      [groupId]
+      [groupId ,requestUserId]
     );
+
     if (groupRows.length === 0) {
       return res.status(404).json({ error: "Group not found" });
     }
 
-    const admin_id = groupRows[0].admin_id;
+    const currentAdmin = groupRows[0].admin_id;
     const groupName = groupRows[0].name;
 
-    if (admin_id === user_id) {
-      // ✅ Admin is leaving
-      const [remainingMembers] = await group_members.execute(
-        "SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ? LIMIT 1",
+    // 3️⃣ Check if leaving user is admin
+    if (currentAdmin === user_id) {
+      console.log("Admin is leaving...");
+
+      // Find other members
+      const [otherMembers] = await group_members.execute(
+        "SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ?",
         [groupId, user_id]
       );
 
-      if (remainingMembers.length === 0) {
-        // ✅ Last member → delete group completely
-        await group_members.execute(
-          "DELETE FROM group_members WHERE group_id = ?",
-          [groupId]
-        );
-        await chat_messages.execute(
-          "DELETE FROM chat_messages WHERE group_id = ?",
-          [groupId]
-        );
-        await create_groups.execute("DELETE FROM create_groups WHERE id = ?", [
-          groupId,
-        ]);
+      if (otherMembers.length === 0) {
+        // LAST MEMBER → delete group
+
+        await group_members.execute("DELETE FROM group_members WHERE group_id = ?", [groupId]);
+        await create_groups.execute("DELETE FROM create_groups WHERE id = ?", [groupId]);
+        // messages optional delete
 
         io.to(groupId).emit("group_deleted", {
-          message: "Group deleted as all members left",
           groupId,
+          message: "Group deleted because admin was the last member",
         });
 
         return res.json({
           success: true,
-          message: "Group deleted as you were the last member",
+          message: "Group deleted because you were the last member",
         });
-      } else {
-        // ✅ Transfer admin rights
-        const newAdminId = remainingMembers[0].user_id;
-        await create_groups.execute(
-          "UPDATE create_groups SET admin_id = ? WHERE id = ?",
-          [newAdminId, groupId]
-        );
       }
+
+      // There are members → assign random admin
+      const randomIndex = Math.floor(Math.random() * otherMembers.length);
+      const newAdminId = otherMembers[randomIndex].user_id;
+
+      await create_groups.execute(
+        "UPDATE create_groups SET admin_id = ? WHERE id = ?",
+        [newAdminId, groupId]
+      );
+
+      io.to(groupId).emit("admin_changed", {
+        groupId,
+        oldAdmin: user_id,
+        newAdmin: newAdminId,
+      });
     }
 
-    // ✅ Remove user from group members
+    // 4️⃣ Remove member from group
     await group_members.execute(
       "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
       [groupId, user_id]
     );
 
-    // ✅ Get user name
+    // 5️⃣ Send notification
     const [userInfo] = await users.execute(
-      "SELECT name, phone_number FROM users WHERE id = ?",
+      "SELECT name FROM users WHERE id = ?",
       [user_id]
     );
-    const userName = userInfo.length > 0 ? userInfo[0].name : "A member";
 
-    // ✅ Notify all group members via socket
-    const [remainingGroupMembers] = await group_members.execute(
-      "SELECT u.phone_number FROM group_members gm JOIN users u ON gm.user_id = u.id WHERE gm.group_id = ?",
-      [groupId]
-    );
+    const userName = userInfo.length ? userInfo[0].name : "A member";
 
-    for (const member of remainingGroupMembers) {
-      const receiverSocketId = getReceiverSocketId(member.phone_number);
-      if (receiverSocketId) {
-        io.to(receiverSocketId).emit("group_notification", {
-          message: `${userName} has left the group ${groupName}`,
-          groupId,
-          leftBy: user_id,
-        });
-      }
-    }
+    io.to(groupId).emit("group_notification", {
+      groupId,
+      message: `${userName} has left the group`,
+    });
 
-    res.json({ success: true, message: "Left group successfully" });
+    return res.json({
+      success: true,
+      message: "Left group successfully",
+    });
+
   } catch (error) {
     console.error("❌ Error leaving group:", error);
-    res.status(500).json({ error: "Failed to leave group" });
+    return res.status(500).json({ error: "Failed to leave group" });
   }
 };
 
@@ -459,61 +459,94 @@ export const ChangeGroupNames = async (req, res) => {
 
 //delete group by admin
 export const DeleteGroup = async (req, res) => {
-  const conn = await db.getConnection(); // assuming db is a mysql2 pool/connection
   try {
     const adminId = req.user.id;
     const { groupId } = req.body;
+    console.log("assada", req.body, adminId);
 
     if (!groupId) {
       return res.status(400).json({ error: "Group ID is required" });
     }
 
-    // Verify admin
-    const [groupRows] = await group_messages.execute(
-      "SELECT * FROM group_messages WHERE id = ? AND admin_id = ?",
+    // Check if user is admin
+    const [groupRows] = await create_groups.execute(
+      "SELECT * FROM create_groups WHERE id = ? AND admin_id = ?",
       [groupId, adminId]
     );
 
     if (groupRows.length === 0) {
-      return res
-        .status(403)
-        .json({ error: "You are not an admin of this group" });
+      return res.status(403).json({ error: "You are not admin of this group" });
     }
 
-    await conn.beginTransaction();
+    // Count all members except admin
+    const [members] = await group_members.execute(
+      "SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ?",
+      [groupId, adminId]
+    );
 
-    // Delete group members
-    await conn.execute("DELETE FROM group_members WHERE group_id = ?", [
+    // CASE 1: No other members -> delete whole group
+    if (members.length === 0) {
+      await group_members.execute(
+        "DELETE FROM group_members WHERE group_id = ?",
+        [groupId]
+      );
+      // keep messages OR remove — your choice
+      // await chat_messages.execute("DELETE FROM chat_messages WHERE group_id = ?", [groupId]);
+      await create_groups.execute("DELETE FROM create_groups WHERE id = ?", [
+        groupId,
+      ]);
+
+      io.to(groupId).emit("group_deleted", {
+        groupId,
+        message: "Group deleted because no members remained",
+      });
+
+      return res.json({
+        success: true,
+        deleted: true,
+        message: "Group removed completely (no members left)",
+      });
+    }
+
+    // CASE 2: Members exist -> assign admin randomly
+    const [randomMember] = await group_members.execute(
+      `SELECT user_id FROM group_members
+       WHERE group_id = ? AND user_id != ?
+       ORDER BY RAND()
+       LIMIT 1`,
+      [groupId, adminId]
+    );
+
+    const newAdminId = randomMember[0].user_id;
+
+    // Update admin
+    await create_groups.execute(
+      "UPDATE create_groups SET admin_id = ? WHERE id = ?",
+      [newAdminId, groupId]
+    );
+
+    // Remove old admin
+    await group_members.execute(
+      "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+      [groupId, adminId]
+    );
+
+    // Emit change event
+    io.to(groupId).emit("admin_changed", {
       groupId,
-    ]);
-
-    // Delete group messages
-    await conn.execute("DELETE FROM chat_messages WHERE group_id = ?", [
-      groupId,
-    ]);
-
-    // Delete group itself
-    await conn.execute("DELETE FROM group_messages WHERE id = ?", [groupId]);
-
-    await conn.commit();
-
-    // Notify via socket (if using Socket.IO)
-    io.to(groupId).emit("group_deleted", {
-      message: "This group has been deleted by the admin",
-      groupId,
+      oldAdmin: adminId,
+      newAdmin: newAdminId,
     });
 
-    res.json({ success: true, message: "Group deleted successfully" });
+    return res.json({
+      success: true,
+      deleted: false,
+      message: "Admin changed randomly and old admin removed",
+      newAdmin: newAdminId,
+    });
   } catch (error) {
-    console.error("❌ Error deleting group:", error);
-    try {
-      await conn.rollback();
-    } catch (rollbackError) {
-      console.error("❌ Error during rollback:", rollbackError);
-    }
-    res.status(500).json({ error: "Failed to delete group" });
-  } finally {
-    conn.release?.(); // release connection if you borrowed one
+    console.error("❌ Error:", error);
+    res.status(500).json({ error: "Something went wrong" });
   }
 };
 
@@ -627,3 +660,49 @@ export const getListOfUser = async (req, res) => {
     return res.status(500).json({ error: "Internal Server Error" });
   }
 };
+
+
+
+
+export const removeMember = async (req, res) => {
+  try {
+    const { groupId, memberId } = req.body;
+    const adminId = req.user.id;
+
+    // Check if admin is admin of this group
+    const [adminRow] = await group_members.execute(
+      `SELECT * FROM group_members 
+       WHERE group_id = ? AND user_id = ? AND member_role = 'admin'`,
+      [groupId, adminId]
+    );
+
+    if (adminRow.length === 0) {
+      return res.status(403).json({
+        success: false,
+        message: "Only admin can remove members",
+      });
+    }
+
+    // Remove member
+    await group_members.execute(
+      `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
+      [groupId, memberId]
+    );
+
+    return res.json({
+      success: true,
+      message: "Member removed successfully",
+      removedUserId: memberId,
+    });
+  } catch (err) {
+    console.log(err);
+    res.status(500).json({ success: false, message: "Server Error" });
+  }
+};
+
+
+
+
+
+
+

@@ -11,6 +11,6 @@ router.post('/add/members', isAuthenticated, AddMembersToGroup)
 router.get('/groups/members/list/:groupId', isAuthenticated, GetGroupMembers);
 router.put('/groups/name/:groupId', isAuthenticated, ChangeGroupName);
 router.get('/groups/list', isAuthenticated, GetAllUserGroups);
-router.delete('/groups/leave/:groupId', isAuthenticated, LeaveGroups);
-router.delete('/delete/permanently/:groupId', isAuthenticated, DeleteGroup);
+router.delete('/groups/leave', isAuthenticated, LeaveGroups);
+router.delete('/delete/permanently', isAuthenticated, DeleteGroup);
 export default router; 

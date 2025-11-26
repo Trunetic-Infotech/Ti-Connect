@@ -62,7 +62,7 @@ const GroupProfile = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }; 
 
   useEffect(() => {
     fetchGroupMembers();
@@ -84,6 +84,47 @@ const GroupProfile = () => {
     }
   }, [params.newMembers]);
 
+
+const handleLeaveGroup = async () => {
+  const token = await SecureStore.getItemAsync("token");
+
+  try {
+    const response = await axios.delete(
+      `${process.env.EXPO_API_URL}/groups/leave`,
+      {
+        data: { 
+          groupId: GroupDetails.id,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    const data = response.data;
+    console.log("Leave Group Response:", data);
+
+    if (data.success) {
+
+      if (data.deleted) {
+        // 🟢 Group fully deleted
+        Alert.alert("Group Deleted", "This group has been deleted.");
+        navigation.goBack();  // exit group chat screen
+      } else {
+        // 🟢 User left or admin changed
+        Alert.alert("Success", "You left the group.");
+        navigation.goBack();  // exit group chat
+      }
+    }
+
+  } catch (error) {
+    console.log("Leave Group Error:", error?.response?.data || error);
+    Alert.alert("Error", "❌ Unable to leave group");
+  }
+};
+
+
+  // console.log("asas",groupMembers);
+  
+
   const handleDeleteMember = (id) => {
     Alert.alert(
       "Remove Member",
@@ -93,12 +134,14 @@ const GroupProfile = () => {
         {
           text: "Remove",
           style: "destructive",
-          onPress: () =>
-            setGroupMembers((prev) => prev.filter((m) => m.id !== id)),
+          onPress: () => handleLeaveGroup(id),
         },
       ]
     );
   };
+
+   
+       console.log("groupMembers.user_id",groupMembers.user_id);
 
   const handleBlockToggle = () => {
     Alert.alert(
@@ -198,9 +241,9 @@ const GroupProfile = () => {
 
         {/* Group Image */}
         <View className="items-center">
-          {GroupDetails.groupImage ? (
+          {groupMembers.groupImage ? (
             <Image
-              source={{ uri: GroupDetails.groupImage }}
+              source={{ uri: groupMembers.groupImage }}
               className="w-24 h-24 rounded-full border-4 border-white shadow-lg"
             />
           ) : (
@@ -212,7 +255,7 @@ const GroupProfile = () => {
           {/* Group Name & Member Count in a Row */}
           <View className="flex-row items-center mt-4">
             <Text className="text-2xl font-bold text-white">
-              {GroupDetails.name}
+              {groupMembers.name}
             </Text>
             <Text className="ml-3 text-white/80 text-lg">
               • {groupMembers.length}{" "}
@@ -231,6 +274,7 @@ const GroupProfile = () => {
         </View>
       </LinearGradient>
 
+       
       {/* Members List */}
       <View className="flex-1 px-6 pt-6">
         <Text className="text-2xl font-semibold text-gray-900 mb-6">

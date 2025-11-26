@@ -23,6 +23,7 @@ import SendMessageBar from "../screens/components/SenderMessage/SendMessageBar";
 import BlockedOverlay from "../screens/components/BlockContact/BlockedOverlay";
 import SelectedMessagesActionBar from "../screens/components/SelectedMessagesActionBar/SelectedMessagesActionBar";
 
+
 const Message = () => {
   const params = useLocalSearchParams();
   const router = useRouter();
