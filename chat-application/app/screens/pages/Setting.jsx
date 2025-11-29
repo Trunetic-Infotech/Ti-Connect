@@ -151,6 +151,7 @@ const Setting = () => {
           <View className="flex-row items-center justify-between ">
             <View className="flex-row items-center gap-3">
               <Feather name="moon" size={20} color="#3b82f6" />
+              {/* TODO: Add Global Context for theme */}
               <Text className="text-base" style={{ color: colors.text }}>
                 Dark Mode
               </Text>

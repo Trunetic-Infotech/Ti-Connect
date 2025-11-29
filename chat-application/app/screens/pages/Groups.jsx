@@ -69,29 +69,29 @@ const Groups = () => {
   );
 
   // ✅ Delete group locally
-const handleDeleteGroup = async (id) => {
-  const token = await SecureStore.getItemAsync("token");
+  const handleDeleteGroup = async (id) => {
+    const token = await SecureStore.getItemAsync("token");
 
-  try {
-    const response = await axios.delete(
-      `${process.env.EXPO_API_URL}/delete/permanently`,
-      {
-        data: { groupId: id }, // Send correct id
-        headers: { Authorization: `Bearer ${token}` },
+    try {
+      const response = await axios.delete(
+        `${process.env.EXPO_API_URL}/delete/permanently`,
+        {
+          data: { groupId: id }, // Send correct id
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      console.log("response data", response.data);
+
+      if (response.data?.success) {
+        setGroups((prev) => prev.filter((group) => group.id !== id));
+        Alert.alert("Success", "✅ Group deleted successfully");
       }
-    );
-
-    console.log("response data", response.data);
-
-    if (response.data?.success) {
-      setGroups((prev) => prev.filter((group) => group.id !== id));
-      Alert.alert("Success", "✅ Group deleted successfully");
+    } catch (error) {
+      console.log("Delete Error: ", error);
+      Alert.alert("Error", "❌ Error deleting group");
     }
-  } catch (error) {
-    console.log("Delete Error: ", error);
-    Alert.alert("Error", "❌ Error deleting group");
-  }
-};
+  };
 
 
   // ✅ Confirm delete alert
@@ -106,31 +106,31 @@ const handleDeleteGroup = async (id) => {
     ]);
   };
 
-useEffect(() => {
-  // Initial fetch
-  fetchGroupsList();
-
-  const socket = getSocket();
-
-  // 🔔 Listen for server events (group created, joined, left, updated, etc.)
-  socket.on("groupUpdated", () => {
-    fetchGroupsList(); // refresh when server notifies
-  });
-
-  socket.on("groupCreated", () => {
+  useEffect(() => {
+    // Initial fetch
     fetchGroupsList();
-  });
 
-  socket.on("groupDeleted", () => {
-    fetchGroupsList();
-  });
+    const socket = getSocket();
 
-  return () => {
-    socket.off("groupUpdated");
-    socket.off("groupCreated");
-    socket.off("groupDeleted");
-  };
-}, []);
+    // 🔔 Listen for server events (group created, joined, left, updated, etc.)
+    socket.on("groupUpdated", () => {
+      fetchGroupsList(); // refresh when server notifies
+    });
+
+    socket.on("groupCreated", () => {
+      fetchGroupsList();
+    });
+
+    socket.on("groupDeleted", () => {
+      fetchGroupsList();
+    });
+
+    return () => {
+      socket.off("groupUpdated");
+      socket.off("groupCreated");
+      socket.off("groupDeleted");
+    };
+  }, []);
 
 
   return (
@@ -159,7 +159,7 @@ useEffect(() => {
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
         {[
           { title: "All", screen: "Chats", type: "navigate" },
-          { title: "Unread", screen: "UnRead", type: "navigate" },
+          // { title: "Unread", screen: "UnRead", type: "navigate" },
           { title: "Groups", type: "filter" }, // local filter
         ].map((item, index) => (
           <TouchableOpacity
@@ -168,9 +168,8 @@ useEffect(() => {
               if (item.type === "filter") setSelectedTab("Groups");
               else navigation.navigate(item.screen);
             }}
-            className={`flex-1 mx-1 py-2 rounded-full ${
-              selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
-            }`}
+            className={`flex-1 mx-1 py-2 rounded-full ${selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
+              }`}
             activeOpacity={0.9}
           >
             <Text className="text-center text-white font-semibold">
@@ -244,7 +243,7 @@ useEffect(() => {
                       {group.text}
                     </Text>
                     <Text className="text-sm text-gray-500">
-                    last message  {new Date(group.time).toLocaleString()} 
+                      last message  {new Date(group.time).toLocaleString()}
                     </Text>
                   </View>
                 </View>

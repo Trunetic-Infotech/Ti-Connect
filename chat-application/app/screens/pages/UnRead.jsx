@@ -78,9 +78,8 @@ const UnRead = () => {
               if (item.screen === "UnRead") return; // stay here
               navigation.navigate(item.screen);
             }}
-            className={`flex-1 mx-1 py-2 rounded-full ${
-              item.title === "Unread" ? "bg-indigo-600" : "bg-indigo-300"
-            }`}
+            className={`flex-1 mx-1 py-2 rounded-full ${item.title === "Unread" ? "bg-indigo-600" : "bg-indigo-300"
+              }`}
             activeOpacity={0.9}
           >
             <Text className="text-center text-white font-semibold">
