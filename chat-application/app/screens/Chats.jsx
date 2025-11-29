@@ -56,7 +56,7 @@ const Chats = () => {
           text: user.lastMessage ?? "",
           isOnline: user.status ?? "",
           lastSeen: user.last_seen_at ?? "none",
-          
+
         }));
         setChatsList(mappedChats);
         dispatch(setOnlineUsers(response.data.data.users));
@@ -115,7 +115,7 @@ const Chats = () => {
       <View className="flex-row justify-between mx-4 mt-5 mb-4">
         {[
           { title: "All", type: "filter" },
-          { title: "Unread", screen: "UnRead", type: "navigate" },
+          // { title: "Unread", screen: "UnRead", type: "navigate" },
           { title: "Groups", screen: "Groups", type: "navigate" },
         ].map((item, index) => (
           <TouchableOpacity
@@ -127,9 +127,8 @@ const Chats = () => {
                 navigation.navigate(item.screen);
               }
             }}
-            className={`flex-1 mx-1 py-2 rounded-full ${
-              selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
-            }`}
+            className={`flex-1 mx-1 py-2 rounded-full ${selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
+              }`}
             activeOpacity={0.9}
           >
             <Text className="text-center text-white font-semibold">
@@ -162,18 +161,17 @@ const Chats = () => {
 
                 <View className="flex-row items-center gap-4">
                   {chat.image ? (
-                 <View>
-                    <Image
-                    source={{ uri: chat.image }}
-                    style={{ width: 44, height: 44, borderRadius: 22 }}
-                    />
-                    <View
-                    className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-white rounded-full ${
-                      chat.status === "active" ? "bg-green-500" : "bg-gray-500"
-                      }`}
+                    <View>
+                      <Image
+                        source={{ uri: chat.image }}
+                        style={{ width: 44, height: 44, borderRadius: 22 }}
                       />
-                      </View>
-                    
+                      <View
+                        className={`absolute bottom-0 right-0 w-4 h-4 border-2 border-white rounded-full ${chat.status === "active" ? "bg-green-500" : "bg-gray-500"
+                          }`}
+                      />
+                    </View>
+
                   ) : (
                     <FontAwesome5
                       name="user-circle"
@@ -204,11 +202,11 @@ const Chats = () => {
       {/* Add Contact Floating Button */}
       <TouchableOpacity
         onPress={() =>
-  router.push({
-    pathname: "/screens/pages/AddContact",
-    params: {  type: "single" },
-  })
-}
+          router.push({
+            pathname: "/screens/pages/AddContact",
+            params: { type: "single" },
+          })
+        }
 
         className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
       >
