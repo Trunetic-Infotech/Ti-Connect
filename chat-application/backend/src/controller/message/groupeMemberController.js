@@ -248,73 +248,189 @@ export const GetGroupMembers = async (req, res) => {
   }
 };
 
-export const LeaveGroups = async (req, res) => {
+// export const removefromGroups = async (req, res) => {
+//   try {
+//     const requestUserId = req.user.id;          // who is performing the action
+//     const { groupId, user_id } = req.body;      // user_id = who is leaving
+
+//     console.log("LeaveGroup BODY:", req.body);
+
+//     if (!groupId || !user_id) {
+//       return res.status(400).json({ error: "Group ID and user ID are required" });
+//     }
+
+//     // 1️⃣ Check membership
+//     const [memberRows] = await group_members.execute(
+//       "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
+//       [groupId, user_id]
+//     );
+
+//     if (memberRows.length === 0) {
+//       return res.status(403).json({
+//         error: "User is not a member of this group",
+//       });
+//     }
+
+//     // 2️⃣ Get group info
+//     const [groupRows] = await create_groups.execute(
+//       "SELECT admin_id, name FROM create_groups WHERE id = ?",
+//       [groupId ,requestUserId]
+//     );
+
+//     if (groupRows.length === 0) {
+//       return res.status(404).json({ error: "Group not found" });
+//     }
+
+//     const currentAdmin = groupRows[0].admin_id;
+//     const groupName = groupRows[0].name;
+
+//     // 3️⃣ Check if leaving user is admin
+//     if (currentAdmin === user_id) {
+//       console.log("Admin is leaving...");
+
+//       // Find other members
+//       const [otherMembers] = await group_members.execute(
+//         "SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ?",
+//         [groupId, user_id]
+//       );
+
+//       if (otherMembers.length === 0) {
+//         // LAST MEMBER → delete group
+
+//         await group_members.execute("DELETE FROM group_members WHERE group_id = ?", [groupId]);
+//         await create_groups.execute("DELETE FROM create_groups WHERE id = ?", [groupId]);
+//         // messages optional delete
+
+//         io.to(groupId).emit("group_deleted", {
+//           groupId,
+//           message: "Group deleted because admin was the last member",
+//         });
+
+//         return res.json({
+//           success: true,
+//           message: "Group deleted because you were the last member",
+//         });
+//       }
+
+//       // There are members → assign random admin
+//       const randomIndex = Math.floor(Math.random() * otherMembers.length);
+//       const newAdminId = otherMembers[randomIndex].user_id;
+
+//       await create_groups.execute(
+//         "UPDATE create_groups SET admin_id = ? WHERE id = ?",
+//         [newAdminId, groupId]
+//       );
+
+//       io.to(groupId).emit("admin_changed", {
+//         groupId,
+//         oldAdmin: user_id,
+//         newAdmin: newAdminId,
+//       });
+//     }
+
+//     // 4️⃣ Remove member from group
+//     await group_members.execute(
+//       "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+//       [groupId, user_id]
+//     );
+
+//     // 5️⃣ Send notification
+//     const [userInfo] = await users.execute(
+//       "SELECT name FROM users WHERE id = ?",
+//       [user_id]
+//     );
+
+//     const userName = userInfo.length ? userInfo[0].name : "A member";
+
+//     io.to(groupId).emit("group_notification", {
+//       groupId,
+//       message: `${userName} has left the group`,
+//     });
+
+//     return res.json({
+//       success: true,
+//       message: "Left group successfully",
+//     });
+
+//   } catch (error) {
+//     console.error("❌ Error leaving group:", error);
+//     return res.status(500).json({ error: "Failed to leave group" });
+//   }
+// };
+
+//change group name
+
+
+export const removeMember = async (req, res) => {
   try {
-    const requestUserId = req.user.id;          // who is performing the action
-    const { groupId, user_id } = req.body;      // user_id = who is leaving
+    const requestUserId = req.user.id;       // user performing the action
+    const { groupId, memberId } = req.body;  // memberId = user who is being removed
 
-    console.log("LeaveGroup BODY:", req.body);
+    // console.log("Remove/Leave BODY:", req.body , requestUserId,memberId);
 
-    if (!groupId || !user_id) {
-      return res.status(400).json({ error: "Group ID and user ID are required" });
+    // ---------------- VALIDATION ----------------
+    if (!groupId) {
+      return res.status(400).json({ error: "groupId & memberId are required" });
     }
 
-    // 1️⃣ Check membership
+    // Check if target user is in group
     const [memberRows] = await group_members.execute(
       "SELECT * FROM group_members WHERE group_id = ? AND user_id = ?",
-      [groupId, user_id]
+      [groupId, memberId]
     );
 
     if (memberRows.length === 0) {
-      return res.status(403).json({
-        error: "User is not a member of this group",
-      });
+      return res.status(404).json({ error: "User is not a group member" });
     }
 
-    // 2️⃣ Get group info
+    // Get group admin
     const [groupRows] = await create_groups.execute(
-      "SELECT admin_id, name FROM create_groups WHERE id = ?",
-      [groupId ,requestUserId]
+      "SELECT admin_id FROM create_groups WHERE id = ?",
+      [groupId]
     );
 
     if (groupRows.length === 0) {
       return res.status(404).json({ error: "Group not found" });
     }
 
-    const currentAdmin = groupRows[0].admin_id;
+    const adminId = groupRows[0].admin_id;
     const groupName = groupRows[0].name;
 
-    // 3️⃣ Check if leaving user is admin
-    if (currentAdmin === user_id) {
-      console.log("Admin is leaving...");
+    // ---------------- PERMISSION CHECK ----------------
+    const isAdmin = requestUserId === adminId;
+    const isSelfLeave = requestUserId === memberId;
 
-      // Find other members
+    if (!isAdmin && !isSelfLeave) {
+      return res.status(403).json({
+        error: "Only admin can remove members. Users can only leave themselves.",
+      });
+    }
+
+    // ---------------- ADMIN LEAVING CASE ----------------
+    if (memberId === adminId) {
+      console.log("⚠ Admin is leaving/removing self");
+
       const [otherMembers] = await group_members.execute(
         "SELECT user_id FROM group_members WHERE group_id = ? AND user_id != ?",
-        [groupId, user_id]
+        [groupId, adminId]
       );
 
+      // If no members left → delete group completely
       if (otherMembers.length === 0) {
-        // LAST MEMBER → delete group
-
         await group_members.execute("DELETE FROM group_members WHERE group_id = ?", [groupId]);
         await create_groups.execute("DELETE FROM create_groups WHERE id = ?", [groupId]);
-        // messages optional delete
 
         io.to(groupId).emit("group_deleted", {
           groupId,
           message: "Group deleted because admin was the last member",
         });
 
-        return res.json({
-          success: true,
-          message: "Group deleted because you were the last member",
-        });
+        return res.json({ success: true, message: "Group deleted successfully" });
       }
 
-      // There are members → assign random admin
-      const randomIndex = Math.floor(Math.random() * otherMembers.length);
-      const newAdminId = otherMembers[randomIndex].user_id;
+      // Assign new admin (random)
+      const newAdminId =
+        otherMembers[Math.floor(Math.random() * otherMembers.length)].user_id;
 
       await create_groups.execute(
         "UPDATE create_groups SET admin_id = ? WHERE id = ?",
@@ -323,42 +439,58 @@ export const LeaveGroups = async (req, res) => {
 
       io.to(groupId).emit("admin_changed", {
         groupId,
-        oldAdmin: user_id,
+        oldAdmin: adminId,
         newAdmin: newAdminId,
       });
     }
 
-    // 4️⃣ Remove member from group
-    await group_members.execute(
-      "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
-      [groupId, user_id]
-    );
+   // ---------------- REMOVE MEMBER ----------------
 
-    // 5️⃣ Send notification
-    const [userInfo] = await users.execute(
-      "SELECT name FROM users WHERE id = ?",
-      [user_id]
-    );
+// Get username of the member being removed
+const [userRows] = await users.execute(
+  "SELECT username FROM users WHERE id = ?",
+  [memberId]
+);
 
-    const userName = userInfo.length ? userInfo[0].name : "A member";
+const userName = userRows.length > 0 ? userRows[0].username : "User";
 
-    io.to(groupId).emit("group_notification", {
-      groupId,
-      message: `${userName} has left the group`,
-    });
+// Delete from group
+await group_members.execute(
+  "DELETE FROM group_members WHERE group_id = ? AND user_id = ?",
+  [groupId, memberId]
+);
+
+// Emit socket message
+io.to(groupId).emit("group_notification", {
+  groupId,
+  message: `${userName} left the group`,
+});
+
 
     return res.json({
       success: true,
-      message: "Left group successfully",
+      message: isSelfLeave
+        ? "You left the group successfully"
+        : "Member removed successfully",
     });
 
   } catch (error) {
-    console.error("❌ Error leaving group:", error);
-    return res.status(500).json({ error: "Failed to leave group" });
+    console.error("❌ Error removing member:", error);
+    return res.status(500).json({ error: "Failed to remove member" });
   }
 };
 
-//change group name
+ 
+
+
+
+
+
+
+
+
+
+
 export const ChangeGroupName = async (req, res) => {
   try {
     const userId = req.user.id;
@@ -594,6 +726,7 @@ export const GetAllUserGroups = async (req, res) => {
           g.group_name, 
           g.group_picture, 
           g.role AS user_role,
+          
           (SELECT COUNT(*) FROM group_members WHERE group_id = g.id) AS total_members,
           (SELECT COUNT(*) 
               FROM group_members gm2 
@@ -663,46 +796,174 @@ export const getListOfUser = async (req, res) => {
 
 
 
-
-export const removeMember = async (req, res) => {
+// leave group controller
+export const LeaveGroups = async (req, res) => {
   try {
-    const { groupId, memberId } = req.body;
-    const adminId = req.user.id;
+    const userId = req.user.id;
+    const { groupId } = req.body;
 
-    // Check if admin is admin of this group
-    const [adminRow] = await group_members.execute(
-      `SELECT * FROM group_members 
-       WHERE group_id = ? AND user_id = ? AND member_role = 'admin'`,
-      [groupId, adminId]
+    if (!groupId) {
+      return res.status(400).json({ success: false, message: "Group ID is required" });
+    }
+
+    // Check if user is a member
+    const [memberRow] = await group_members.execute(
+      `SELECT * FROM group_members WHERE group_id = ? AND user_id = ?`,
+      [groupId, userId]
     );
 
-    if (adminRow.length === 0) {
-      return res.status(403).json({
+    // Check if user is admin
+    const [adminRow] = await create_groups.execute(
+      `SELECT * FROM create_groups WHERE id = ? AND admin_id = ?`,
+      [groupId, userId]
+    );
+
+    if (memberRow.length === 0 && adminRow.length === 0) {
+      return res.status(404).json({
         success: false,
-        message: "Only admin can remove members",
+        message: "You are not a member of this group",
       });
     }
 
-    // Remove member
+    const isAdmin = adminRow.length > 0;
+
+    // 👉 Get other members (except the user)
+    const [otherMembers] = await group_members.execute(
+      `SELECT user_id FROM group_members 
+       WHERE group_id = ? AND user_id != ?`,
+      [groupId, userId]
+    );
+
+    // -----------------------------------------
+    // CASE 1: ADMIN LEAVES
+    // -----------------------------------------
+    if (isAdmin) {
+      console.log("⚠ Admin leaving…");
+
+      if (otherMembers.length === 0) {
+        console.log("⚠ Admin is last member → deleting group");
+
+        await group_members.execute(`DELETE FROM group_members WHERE group_id = ?`, [groupId]);
+        await create_groups.execute(`DELETE FROM create_groups WHERE id = ?`, [groupId]);
+
+        return res.json({
+          success: true,
+          message: "Group deleted (admin was last member)",
+        });
+      }
+
+      // Assign new admin
+      const newAdminId = otherMembers[0].user_id;
+
+      await create_groups.execute(
+        `UPDATE create_groups SET admin_id = ? WHERE id = ?`,
+        [newAdminId, groupId]
+      );
+
+      await group_members.execute(
+        `UPDATE group_members SET member_role = 'admin'
+         WHERE group_id = ? AND user_id = ?`,
+        [groupId, newAdminId]
+      );
+
+      console.log(`New admin selected: ${newAdminId}`);
+    }
+
+    // -----------------------------------------
+    // CASE 2: MEMBER LEAVES
+    // -----------------------------------------
     await group_members.execute(
       `DELETE FROM group_members WHERE group_id = ? AND user_id = ?`,
-      [groupId, memberId]
+      [groupId, userId]
     );
 
     return res.json({
       success: true,
-      message: "Member removed successfully",
-      removedUserId: memberId,
+      message: "You left the group successfully",
+      removedUserId: userId,
     });
+
   } catch (err) {
-    console.log(err);
-    res.status(500).json({ success: false, message: "Server Error" });
+    console.log("❌ LeaveGroups Error:", err);
+    return res.status(500).json({ success: false, message: "Server Error" });
   }
 };
 
 
 
 
+// Works for both: normal user + admin (from token)
+export const toggleBlockUserInGroup = async (req, res) => {
+  try {
+    const userId = req.user.id;
+    const { groupId, Block_Group } = req.body;
+
+    console.log("toggleBlock BODY:", req.body, "LoggedIn:", userId);
+
+    if (!groupId) {
+      return res.status(400).json({ error: "Group ID is required" });
+    }
+    if (!Block_Group || !["block", "unblock"].includes(Block_Group)) {
+      return res.status(400).json({ error: "Block_Group must be 'block' or 'unblock'" });
+    }
+
+    // Check if user is MEMBER
+    const [member] = await group_members.execute(
+      `SELECT * FROM group_members WHERE group_id = ? AND user_id = ?`,
+      [groupId, userId]
+    );
+
+    // Check if user is ADMIN
+    const [adminMember] = await create_groups.execute(
+      `SELECT * FROM create_groups WHERE id = ? AND admin_id = ?`,
+      [groupId, userId]
+    );
+
+    // ❌ Not in group at all
+    if (member.length === 0 && adminMember.length === 0) {
+      return res.status(404).json({ error: "User not found in this group" });
+    }
+
+    // Pick correct record (admin or member)
+    const userRecord = member.length > 0 ? member[0] : adminMember[0];
+
+    // Prevent undefined errors
+    const currentBlockStatus = userRecord.Block_Group || "unblock";
+
+    // ❌ Already same state
+    if (currentBlockStatus === Block_Group) {
+      return res.status(400).json({ error: `You are already ${Block_Group}ed in this group` });
+    }
+
+    // Update for MEMBER
+    if (member.length > 0) {
+      await group_members.execute(
+        `UPDATE group_members SET Block_Group = ? WHERE group_id = ? AND user_id = ?`,
+        [Block_Group, groupId, userId]
+      );
+    }
+
+    // Update for ADMIN
+    if (adminMember.length > 0) {
+      await create_groups.execute(
+        `UPDATE create_groups SET Block_Group = ? WHERE id = ? AND admin_id = ?`,
+        [Block_Group, groupId, userId]
+      );
+    }
+
+    return res.json({
+      success: true,
+      message: `You are now ${Block_Group}ed in this group`,
+    });
+
+  } catch (error) {
+    console.log("Server Error:", error);
+    return res.status(500).json({
+      error: "Server error",
+      details: error.message
+    });
+  }
+};
 
 
 
