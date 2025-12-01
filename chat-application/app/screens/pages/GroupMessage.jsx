@@ -62,6 +62,13 @@ const GroupMessage = () => {
       setWallpaperUri(uri || null);
     })();
   }, []);
+  useEffect(() => {
+    if (flatListRef.current && messages.length > 0) {
+      setTimeout(() => {
+        flatListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      }, 100);
+    }
+  }, [messages.length]);
 
   // ------------------ Fetch Messages ------------------
   const fetchMessages = async () => {
@@ -183,8 +190,11 @@ const GroupMessage = () => {
       const msg = data.newGroupMessage || data;
       if (msg.group_id === GroupDetails.id) {
         setMessages(prev => {
-          if (prev.some(me => me.id === msg.id)) return prev; // avoid duplicate
-          return [...prev, { ...msg, isSender: msg.sender_id === currentUserId }];
+          if (prev.some(m => m.id === msg.id)) return prev;
+          return [{
+            ...msg,
+            isSender: msg.sender_id === currentUserId
+          }, ...prev];
         });
       }
     };
@@ -199,11 +209,11 @@ const GroupMessage = () => {
 
     // 🔹 Cleanup
     return () => {
-      socket.off("groupNewMessage", handleNewMessage);
+      // socket.off("groupNewMessage", handleNewMessage);
       socket.off("groupMessageDeleted", handleDeletedMessage);
       socket.off("message_updated", handleUpdatedMessage);
       socket.off("message_status_update", handleMessageStatusUpdate);
-      socket.on("groupNewMessage", handleGroupNewMessage);
+      // socket.on("groupNewMessage", handleGroupNewMessage);
     };
   }, [currentUserId, GroupDetails?.id]);
   // ------------------- SELECTION -------------------
@@ -330,7 +340,7 @@ const GroupMessage = () => {
           );
 
           if (response.data.success) {
-            setMessages((prev) => [...prev, response.data.newMessage]);
+            setMessages((prev) => [response.data.newMessage, ...prev]);
             setMessageText("");
           }
           return; // ✅ stop here — no need to upload
@@ -378,20 +388,20 @@ const GroupMessage = () => {
         console.log("Upload response:", res.data);
 
         if (res.data.success) {
-          const result = await axios.post(
-            `${API_URL}/messages`,
-            {
-              media_url: res.data.fileUrl,
-              groupId: GroupDetails.id,
-              status: "sent",
-              message_type: media.type,
-            },
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          // Server already created the message and emitted via socket
+          // So we just clear the input
+          setMessageText("");
 
-          if (result.data.success) {
-            setMessages((prev) => [...prev, result.data.newMessage]);
-            setMessageText("");
+          // Optional fallback: if socket hasn't fired yet, add from response
+          if (res.data.newMessage) {
+            setMessages(prev => {
+              // Avoid duplicate
+              if (prev.some(m => m.id === res.data.newMessage.id)) return prev;
+              return [{
+                ...res.data.newMessage,
+                isSender: true
+              }, ...prev];
+            });
           }
         }
         return;
@@ -409,7 +419,7 @@ const GroupMessage = () => {
       );
 
       if (response.data.success) {
-        setMessages((prev) => [...prev, response.data.newMessage]);
+        setMessages((prev) => [response.data.newMessage, ...prev]);
         setMessageText("");
       }
     } catch (err) {
