@@ -7,7 +7,7 @@ export const SendMessage = async (req, res) => {
   try {
     const sender_id = req.user.id; // ✅ fix destructuring
 
-    const { receiver_id, message, message_type = "text", media_url,duration ,is_read, status, contact_details } = req.body;
+    const { receiver_id, message, message_type = "text", media_url, duration, is_read, status, contact_details } = req.body;
 
     // console.log("data",sender_id);
 
@@ -44,17 +44,17 @@ export const SendMessage = async (req, res) => {
       id: result.insertId,
       sender_id,
       receiver_id,
-      message : encryptedMessage || null,
+      message: encryptedMessage || null,
       message_type,
       media_url: media_url || null,
       duration: duration || null,
       is_read: 0,
       created_at: new Date(),
       status: status || "sent",
-      contact_details : encryptedContactDetails || null,
+      contact_details: encryptedContactDetails || null,
     };
 
-       // Optionally include decrypted message for sender’s UI
+    // Optionally include decrypted message for sender’s UI
     if (message_type === "text") newMessage.message = message;
     if (message_type === "contact") newMessage.contact_details = contact_details;
 
@@ -97,7 +97,7 @@ export const MarkMessageDelivered = async (req, res) => {
     );
     const message = rows[0];
     // console.log(message);
-    
+
 
     // Get sender socket
     const senderSocketId = getReceiverSocketId(message.sender_id); // ✅ fixed
@@ -130,15 +130,15 @@ export const MarkMessageRead = async (req, res) => {
       [messageId]
     );
 
-        if (!rows || rows.length === 0) {
+    if (!rows || rows.length === 0) {
       console.warn(`⚠️ No message found with id ${messageId}`);
       return res.status(404).json({ error: "Message not found" });
     }
 
     const message = rows[0];
-   
+
     // console.log(message);
-    
+
     const senderSocketId = getReceiverSocketId(message.sender_id);
     if (senderSocketId) {
       io.to(senderSocketId).emit("message_status_update", {
@@ -158,57 +158,63 @@ export const MarkMessageRead = async (req, res) => {
 export const GetMessages = async (req, res) => {
   try {
     const myId = req.user.id;
-    const { receiver_id } = req.query; // use query params for GET
-    // console.log(receiver_id, myId);
+    const { receiver_id } = req.query;
 
+    // Validation
     if (!receiver_id) {
       return res.status(400).json({ error: "Receiver ID is required" });
     }
+
     if (Number(receiver_id) === Number(myId)) {
       return res
         .status(400)
         .json({ error: "Cannot fetch messages with yourself" });
     }
 
-
-
+    // Fetch messages - ORDER BY ASC is correct for inverted FlatList
     const [rows] = await chat_messages.execute(
-      `SELECT m.*, 
-              sender.username AS sender_name, sender.profile_picture AS sender_image,
-              receiver.username AS receiver_name, receiver.profile_picture AS receiver_image
-       FROM chat_messages m
-       JOIN users sender ON m.sender_id = sender.id
-       JOIN users receiver ON m.receiver_id = receiver.id
-       WHERE (m.sender_id = ? AND m.receiver_id = ?) 
-          OR (m.sender_id = ? AND m.receiver_id = ?) 
-       ORDER BY m.created_at ASC`,
+      `
+      SELECT 
+        m.*,
+        sender.username AS sender_name,
+        sender.profile_picture AS sender_image,
+        receiver.username AS receiver_name,
+        receiver.profile_picture AS receiver_image
+      FROM chat_messages m
+      JOIN users sender ON m.sender_id = sender.id
+      JOIN users receiver ON m.receiver_id = receiver.id
+      WHERE 
+        (m.sender_id = ? AND m.receiver_id = ?)
+        OR
+        (m.sender_id = ? AND m.receiver_id = ?)
+      ORDER BY m.created_at DESC
+      LIMIT 15
+      `,
       [myId, receiver_id, receiver_id, myId]
     );
 
-    // console.log("messages ",rows);
-        const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
+    // Decrypt messages (keep ASC order)
+    const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
     if (!encryptionKey) {
-      throw new Error("Missing MESSAGE_ENCRYPTION_KEY ");
+      throw new Error("Missing MESSAGE_ENCRYPTION_KEY");
     }
 
-        const messages = rows.map((msg) => {
+    const messages = rows.map((msg) => {
       let decryptedMessage = msg.message;
       let decryptedContact = msg.contact_details;
 
       try {
-        // 🔓 Decrypt text messages
+        // Decrypt text message
         if (msg.message_type === "text" && msg.message) {
           const bytes = CryptoJS.AES.decrypt(msg.message, encryptionKey);
           decryptedMessage = bytes.toString(CryptoJS.enc.Utf8) || null;
         }
 
-        // 🔓 Decrypt contact details
+        // Decrypt contact details
         if (msg.message_type === "contact" && msg.contact_details) {
           const bytes = CryptoJS.AES.decrypt(msg.contact_details, encryptionKey);
           const decryptedString = bytes.toString(CryptoJS.enc.Utf8);
-          decryptedContact = decryptedString
-            ? JSON.parse(decryptedString)
-            : null;
+          decryptedContact = decryptedString ? JSON.parse(decryptedString) : null;
         }
       } catch (error) {
         console.error("Decryption error for message ID:", msg.id, error);
@@ -233,19 +239,14 @@ export const GetMessages = async (req, res) => {
       };
     });
 
-    // console.log(messages);
-    
-
-    // Send to receiver
+    // Send to receiver socket (optional)
     const receiverSocketId = getReceiverSocketId(receiver_id);
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("receive_message", messages);
     }
     io.emit("send_message", messages);
 
-    // console.log("kjdfhnsd",messages);
-    // console.log("Decrypted messages being sent:", messages.slice(-2));
-
+    // Respond
     res.json({ success: true, messages });
   } catch (error) {
     console.error("Error getting messages:", error);
@@ -253,15 +254,92 @@ export const GetMessages = async (req, res) => {
   }
 };
 
+// controller/message/messageController.js
+
+export const GetOlderMessages = async (req, res) => {
+  try {
+    const myId = req.user.id;
+    const { receiver_id, before_id } = req.query;
+
+    if (!receiver_id || !before_id) {
+      return res.status(400).json({ error: "receiver_id and before_id are required" });
+    }
+
+    // Fetch 15 messages BEFORE the given message ID (older ones)
+    const [rows] = await chat_messages.execute(
+      `
+      SELECT 
+        m.*,
+        sender.username AS sender_name,
+        sender.profile_picture AS sender_image,
+        receiver.username AS receiver_name,
+        receiver.profile_picture AS receiver_image
+      FROM chat_messages m
+      JOIN users sender ON m.sender_id = sender.id
+      JOIN users receiver ON m.receiver_id = receiver.id
+      WHERE 
+        ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?))
+        AND m.id < ?
+      ORDER BY m.created_at DESC
+      LIMIT 15
+      `,
+      [myId, receiver_id, receiver_id, myId, before_id]
+    );
+
+    const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
+    if (!encryptionKey) throw new Error("Missing encryption key");
+
+    const messages = rows.map((msg) => {
+      let decryptedMessage = msg.message;
+      let decryptedContact = msg.contact_details;
+
+      try {
+        if (msg.message_type === "text" && msg.message) {
+          const bytes = CryptoJS.AES.decrypt(msg.message, encryptionKey);
+          decryptedMessage = bytes.toString(CryptoJS.enc.Utf8) || null;
+        }
+        if (msg.message_type === "contact" && msg.contact_details) {
+          const bytes = CryptoJS.AES.decrypt(msg.contact_details, encryptionKey);
+          const str = bytes.toString(CryptoJS.enc.Utf8);
+          decryptedContact = str ? JSON.parse(str) : null;
+        }
+      } catch (e) {
+        console.error("Decryption failed:", e);
+      }
+
+      return {
+        id: msg.id,
+        sender_id: msg.sender_id,
+        receiver_id: msg.receiver_id,
+        message: decryptedMessage,
+        message_type: msg.message_type,
+        media_url: msg.media_url,
+        duration: msg.duration,
+        is_read: msg.is_read,
+        created_at: new Date(msg.created_at).toISOString(),
+        status: msg.status,
+        contact_details: decryptedContact,
+        sender_name: msg.sender_name,
+        sender_image: msg.sender_image,
+      };
+    });
+
+    res.json({ success: true, messages });
+  } catch (error) {
+    console.error("Error fetching older messages:", error);
+    res.status(500).json({ error: "Failed to load older messages" });
+  }
+};
+
 //update message
 export const UpdateMessage = async (req, res) => {
   try {
     const userId = req.user.id; // ✅ Logged-in user ID
-    const {  message, message_type = "text" } = req.body;
-    const {messageId} = req.params;
-    
+    const { message, message_type = "text" } = req.body;
+    const { messageId } = req.params;
+
     // console.log(req.body);
-    
+
 
     if (!messageId || !message) {
       return res
@@ -287,7 +365,7 @@ export const UpdateMessage = async (req, res) => {
         .status(403)
         .json({ error: "Not authorized to edit this message" });
     }
- 
+
     // 🔐 Encrypt updated message
     const encryptionKey = process.env.MESSAGE_ENCRYPTION_KEY;
     if (!encryptionKey) {
@@ -380,9 +458,9 @@ export const DeleteMessage = async (req, res) => {
       sender_id: userId,
       receiver_id,
     };
-    
+
     // console.log(receiverSocketId, senderSocketId);
-    
+
 
     // 🔥 Emit event to both sender and receiver (camelCase event)
     if (receiverSocketId) io.to(receiverSocketId).emit("messageDeleted", payload);
@@ -401,7 +479,7 @@ export const UploadMedia = async (req, res) => {
       return res.status(400).json({ success: false, message: "No file uploaded" });
     }
     // console.log(req.files);
-    
+
 
     // Determine media type
     const getType = (file) => {
@@ -441,45 +519,3 @@ export const UploadMedia = async (req, res) => {
     res.status(500).json({ success: false, message: err.message });
   }
 };
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

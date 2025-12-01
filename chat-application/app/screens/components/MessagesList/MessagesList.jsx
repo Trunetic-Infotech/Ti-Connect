@@ -21,7 +21,6 @@ import DocumentViewer from "../DocumentViewer/DocumentViewer";
 import { format } from "date-fns";
 import axios from "axios";
 import MediaItem from "../MediaItems/MediaItem";
-
 const MessageBubble = memo(
   ({
     item,
@@ -37,9 +36,8 @@ const MessageBubble = memo(
     return (
       <Animated.View style={{ opacity: 1 }}>
         <View
-          className={`max-w-[100%] my-2 flex-row ${
-            isMe ? "self-end justify-end" : "self-start justify-start"
-          }`}
+          className={`max-w-[100%] my-2 flex-row ${isMe ? "self-end justify-end" : "self-start justify-start"
+            }`}
         >
           {/* Avatar */}
           {!isMe &&
@@ -59,9 +57,8 @@ const MessageBubble = memo(
           {/* Chat Bubble */}
           <TouchableWithoutFeedback onLongPress={() => handleLongPress(item)}>
             <View
-              className={`py-2 px-3 rounded-2xl overflow-hidden max-w-[75%] ${
-                isMe ? "bg-blue-400" : "bg-yellow-300"
-              } ${item.message_type === "contact" ? "p-1 max-w-[90%]" : ""}`}
+              className={`py-2 px-3 rounded-2xl overflow-hidden max-w-[75%] ${isMe ? "bg-blue-400" : "bg-yellow-300"
+                } ${item.message_type === "contact" ? "p-1 max-w-[90%]" : ""}`}
               style={{
                 borderBottomRightRadius: isMe ? 4 : 18,
                 borderBottomLeftRadius: isMe ? 18 : 4,
@@ -164,6 +161,10 @@ const MessagesList = ({
   onDeleteMessage, // delete handler from parent
   onEditMessage, // edit handler from parent
   isLoading,
+
+  onLoadMore,           // the function
+  isLoadingMore,        // boolean
+  hasMore,
 }) => {
   const [selectedMedia, setSelectedMedia] = useState(null);
   const screenWidth = Dimensions.get("window").width;
@@ -208,25 +209,6 @@ const MessagesList = ({
 
   const handleCloseMedia = () => setSelectedMedia(null);
 
-  // 🔹 Auto-scroll to bottom when messages change
-  useEffect(() => {
-    if (messages.length > 0 && flatListRef?.current) {
-      setTimeout(() => {
-        flatListRef.current.scrollToEnd({ animated: true });
-      }, 100);
-    }
-
-    // 🔹 Mark all incoming messages as delivered when chat opens
-    if (user) {
-      messages.forEach((msg) => {
-        if (msg.status === "sent" && msg.receiver_id !== user.id) {
-          axios
-            .post(`${process.env.EXPO_API_URL}/messages/${msg.id}/delivered`)
-            .catch((err) => console.log("Error marking delivered:", err));
-        }
-      });
-    }
-  }, [messages, user]);
 
   // 🔹 Helper to get initials
   const getInitials = (name) => {
@@ -297,8 +279,9 @@ const MessagesList = ({
   //   },
   //   [user]
   // );
-   const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }) => {      if (!user || !viewableItems) return;
+  const handleViewableItemsChanged = useCallback(
+    ({ viewableItems }) => {
+      if (!user || !viewableItems) return;
 
       viewableItems.forEach((viewable) => {
         const msg = viewable?.item;
@@ -350,7 +333,7 @@ const MessagesList = ({
         />
       );
     },
-    [user, type, screenWidth ,getInitials, handleLongPress, handleOpenMedia, formatTime]
+    [user, type, screenWidth, getInitials, handleLongPress, handleOpenMedia, formatTime]
   );
 
   // 🔹 Main render
@@ -394,38 +377,24 @@ const MessagesList = ({
         ) : (
           <FlatList
             ref={flatListRef}
-            data={messages.filter(Boolean)} // removes undefined/null
+            data={messages.filter(Boolean)}
+            //used inverted to show latest message at bottom without the use of scrollToEnd function - Sahil
+            inverted={true}
             keyExtractor={(item, index) => {
-              if (!item) {
-                console.warn("⚠️ Undefined message at index:", index);
-                return `undefined-${index}`;
-              }
-
-              return (
-                item.message_id?.toString() ||
-                item.id?.toString() ||
-                item._id?.toStr35() ||
-                `${item.sender_id}-${index}` ||
-                index.toString()
-              );
+              if (!item) return `undefined-${index}`;
+              return item.id?.toString() || item.message_id?.toString() || index.toString();
             }}
             renderItem={renderMessage}
-            contentContainerStyle={{ padding: 10, flexGrow: 1 }}
+            contentContainerStyle={{ padding: 10 }}
             showsVerticalScrollIndicator={false}
             initialNumToRender={20}
             maxToRenderPerBatch={10}
             windowSize={10}
             removeClippedSubviews={true}
-            onContentSizeChange={() => {
-              if (flatListRef?.current) {
-                flatListRef.current.scrollToEnd({ animated: true });
-              }
-            }}
-            onLayout={() =>
-              flatListRef?.current?.scrollToEnd({ animated: false })
-            }
             onViewableItemsChanged={handleViewableItemsChanged}
             viewabilityConfig={viewabilityConfig}
+            onStartReached={onLoadMore}           // This triggers when scrolling to top
+            onStartReachedThreshold={0.5}
           />
         )}
 

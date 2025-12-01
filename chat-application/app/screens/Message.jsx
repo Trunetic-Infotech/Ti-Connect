@@ -42,6 +42,51 @@ const Message = () => {
   const fadeAnim = useRef(new Animated.Value(0)).current;
   const flatListRef = useRef(null);
 
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true); // To stop infinite loading
+
+
+  const loadMoreMessages = async () => {
+    if (isLoadingMore || !hasMore || messages.length === 0) return;
+
+    setIsLoadingMore(true);
+
+    try {
+      const token = await SecureStore.getItemAsync("token");
+      const oldestMessageId = messages[messages.length - 1]?.id; // Last in array = oldest (since DESC)
+
+      if (!oldestMessageId) {
+        setHasMore(false);
+        setIsLoadingMore(false);
+        return;
+      }
+
+      const response = await axios.get(`${process.env.EXPO_API_URL}/get/messages/older`, {
+        params: {
+          receiver_id: currentChatUser.id,
+          before_id: oldestMessageId,
+        },
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (response.data.success && response.data.messages.length > 0) {
+        // Prepend older messages to the END of array (since inverted list)
+        setMessages((prev) => [...prev, ...response.data.messages]);
+
+        // If less than 15 → no more messages
+        if (response.data.messages.length < 15) {
+          setHasMore(false);
+        }
+      } else {
+        setHasMore(false);
+      }
+    } catch (err) {
+      console.error("Load more error:", err);
+    } finally {
+      setIsLoadingMore(false);
+    }
+  };
+
   // ------------------ Parse user param ------------------
   useEffect(() => {
     let userParam = params.user;
@@ -100,7 +145,7 @@ const Message = () => {
         (msg.sender_id === me.id && msg.receiver_id === currentChatUser?.id) ||
         (msg.sender_id === currentChatUser?.id && msg.receiver_id === me.id)
       ) {
-        setMessages((prev) => [...prev, msg]);
+        setMessages((prev) => [msg, ...prev]);
 
         // If message is from the other user, mark as delivered immediately
         if (
@@ -310,7 +355,7 @@ const Message = () => {
           );
 
           if (response.data.success) {
-            setMessages((prev) => [...prev, response.data.newMessage]);
+            setMessages((prev) => [response.data.newMessage, ...prev]);
             setMessageText("");
           }
           return; // ✅ stop here — no need to upload
@@ -369,7 +414,7 @@ const Message = () => {
           );
 
           if (result.data.success) {
-            setMessages((prev) => [...prev, result.data.newMessage]);
+            setMessages((prev) => [result.data.newMessage, ...prev]);
             setMessageText("");
           }
         }
@@ -388,7 +433,7 @@ const Message = () => {
       );
 
       if (response.data.success) {
-        setMessages((prev) => [...prev, response.data.newMessage]);
+        setMessages((prev) => [response.data.newMessage, ...prev]);
         setMessageText("");
       }
     } catch (err) {
@@ -406,7 +451,7 @@ const Message = () => {
       if (!token) return Alert.alert("Error", "No token found");
 
       // const response = await axios.
-    } catch (error) {}
+    } catch (error) { }
     setMessages([]);
     cancelSelection();
   };
@@ -489,6 +534,9 @@ const Message = () => {
                   onDeleteMessage={deleteSelectedMessages} // For real-time delete
                   onEditMessage={editSelectedMessage} // For real-time edit
                   isLoading={isLoading}
+                  onLoadMore={loadMoreMessages}
+                  isLoadingMore={isLoadingMore}
+                  hasMore={hasMore}
                 />
               ) : (
                 <View>
