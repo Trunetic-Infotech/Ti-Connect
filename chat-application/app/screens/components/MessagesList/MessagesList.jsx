@@ -217,15 +217,15 @@ const MessagesList = ({
     }
 
     // 🔹 Mark all incoming messages as delivered when chat opens
-    // if (user) {
-    //   messages.forEach((msg) => {
-    //     if (msg.status === "sent" && msg.receiver_id !== user.id) {
-    //       axios
-    //         .post(`${process.env.EXPO_API_URL}/messages/${msg.id}/delivered`)
-    //         .catch((err) => console.log("Error marking delivered:", err));
-    //     }
-    //   });
-    // }
+    if (user) {
+      messages.forEach((msg) => {
+        if (msg.status === "sent" && msg.receiver_id !== user.id) {
+          axios
+            .post(`${process.env.EXPO_API_URL}/messages/${msg.id}/delivered`)
+            .catch((err) => console.log("Error marking delivered:", err));
+        }
+      });
+    }
   }, [messages, user]);
 
   // 🔹 Helper to get initials
@@ -298,8 +298,7 @@ const MessagesList = ({
   //   [user]
   // );
    const handleViewableItemsChanged = useCallback(
-    ({ viewableItems }) => {
-      if (!user || !viewableItems) return;
+    ({ viewableItems }) => {      if (!user || !viewableItems) return;
 
       viewableItems.forEach((viewable) => {
         const msg = viewable?.item;
