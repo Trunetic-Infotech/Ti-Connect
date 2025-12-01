@@ -24,7 +24,7 @@ import { useSelector } from "react-redux";
 import { getSocket } from "../../services/socketService";
 
 const GroupMessage = () => {
- // ------------------- STATE -------------------
+  // ------------------- STATE -------------------
   const [messages, setMessages] = useState([]);
   const [selectedMessages, setSelectedMessages] = useState([]);
   const [editingMessageId, setEditingMessageId] = useState(null);
@@ -39,7 +39,7 @@ const GroupMessage = () => {
   const flatListRef = useRef(null);
 
   const currentUserId = useSelector((state) => state.auth.user.id);
-  const user = useSelector((state)=>state.auth.user);
+  const user = useSelector((state) => state.auth.user);
 
   const params = useLocalSearchParams();
   let GroupDetails = params.groupedata;
@@ -50,7 +50,7 @@ const GroupMessage = () => {
       GroupDetails = JSON.parse(GroupDetails);
     }
     console.log("This is the grp data ", GroupDetails);
-    
+
   } catch (e) {
     console.log("Failed to parse GroupDetails:", e);
   }
@@ -64,7 +64,7 @@ const GroupMessage = () => {
   }, []);
 
   // ------------------ Fetch Messages ------------------
-    const fetchMessages = async () => {
+  const fetchMessages = async () => {
     const token = await SecureStore.getItemAsync("token");
     if (!token) {
       Alert.alert("please login again");
@@ -78,7 +78,7 @@ const GroupMessage = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      
+
       // console.log("GroupData", response.data);
       if (response.data.success) {
         const messages = response.data.messages.map((msg) => ({
@@ -108,7 +108,7 @@ const GroupMessage = () => {
     if (!socket) return;
 
     // 🔹 Handle new incoming messages
- const handleNewMessage = async (msg) => {
+    const handleNewMessage = async (msg) => {
       // Only consider messages between me and current chat user
       if (msg.group_id === GroupDetails.id) {
         setMessages((prev) => [...prev, msg]);
@@ -146,8 +146,8 @@ const GroupMessage = () => {
       if (
         (updatedMsg.sender_id === me.id &&
           updatedMsg.groupId === GroupDetails?.id)
-          //  || (updatedMsg.sender_id === GroupDetails?.id &&
-          // updatedMsg.groupId === me.id)
+        //  || (updatedMsg.sender_id === GroupDetails?.id &&
+        // updatedMsg.groupId === me.id)
       ) {
         setMessages((prev) =>
           prev.map((msg) =>
@@ -179,7 +179,7 @@ const GroupMessage = () => {
     //   // );
     // };
 
-        const handleGroupNewMessage = (data) => {
+    const handleGroupNewMessage = (data) => {
       const msg = data.newGroupMessage || data;
       if (msg.group_id === GroupDetails.id) {
         setMessages(prev => {
@@ -206,8 +206,7 @@ const GroupMessage = () => {
       socket.on("groupNewMessage", handleGroupNewMessage);
     };
   }, [currentUserId, GroupDetails?.id]);
-
-  // ------------------ Message Selection ------------------
+  // ------------------- SELECTION -------------------
   const toggleMessageSelection = (id) => {
     console.log(id);
 
@@ -236,30 +235,30 @@ const GroupMessage = () => {
       const token = await SecureStore.getItemAsync("token");
       if (!token) return Alert.alert("Error", "No token found");
 
-    Alert.alert(
-      "Delete Messages",
-      `Delete ${selectedMessages.length} message(s)?`,
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Delete",
-          style: "destructive",
-          onPress: async () => {
-            try {
-              await axios.delete(`${process.env.EXPO_API_URL}/messages`, {
-                data: { ids: selectedMessages },
-              });
-              setMessages((prev) =>
-                prev.filter((msg) => !selectedMessages.includes(msg.id))
-              );
-              setSelectedMessages([]);
-            } catch (err) {
-              console.error("Delete failed:", err);
-            }
+      Alert.alert(
+        "Delete Messages",
+        `Delete ${selectedMessages.length} message(s)?`,
+        [
+          { text: "Cancel", style: "cancel" },
+          {
+            text: "Delete",
+            style: "destructive",
+            onPress: async () => {
+              try {
+                await axios.delete(`${process.env.EXPO_API_URL}/messages`, {
+                  data: { ids: selectedMessages },
+                });
+                setMessages((prev) =>
+                  prev.filter((msg) => !selectedMessages.includes(msg.id))
+                );
+                setSelectedMessages([]);
+              } catch (err) {
+                console.error("Delete failed:", err);
+              }
+            },
           },
-        },
-      ]
-    );
+        ]
+      );
     } catch (err) {
       console.error("Delete message error:", err);
     }
@@ -428,7 +427,7 @@ const GroupMessage = () => {
       if (!token) return Alert.alert("Error", "No token found");
 
       // const response = await axios.
-    } catch (error) {}
+    } catch (error) { }
     setMessages([]);
     cancelSelection();
   };
@@ -460,7 +459,7 @@ const GroupMessage = () => {
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
         <SafeAreaView className="flex-1 bg-slate-50" edges={["top", "bottom"]}>
           {/* Chat Header */}
-             <GroupChatHeader
+          <GroupChatHeader
             onWallpaperChange={handleWallpaperChange}
             onBlock={() => setIsBlocked(true)}
             onClearChat={clearChat}
@@ -480,90 +479,90 @@ const GroupMessage = () => {
           {/* Blocked Overlay */}
           {
             hasLeftGroup ? (
-            <View className="flex-1 justify-center items-center px-4">
-              <Text className="text-center text-gray-600 text-lg">
-                You have left this group. You cannot send or receive messages.
-              </Text>
-              <TouchableOpacity
-                onPress={() => router.back()}
-                className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
-              >
-                <Text className="text-white font-semibold text-center">
-                  Back to Groups
+              <View className="flex-1 justify-center items-center px-4">
+                <Text className="text-center text-gray-600 text-lg">
+                  You have left this group. You cannot send or receive messages.
                 </Text>
-              </TouchableOpacity>
-            </View>
-          ) : isBlocked ? (
-            <BlockedOverlay
-              onUnblock={() => setIsBlocked(false)}
-              onDelete={() => {
-                Alert.alert(
-                  "Delete Chat",
-                  "Are you sure you want to delete this chat?",
-                  [
-                    { text: "Cancel", style: "cancel" },
-                    {
-                      text: "Delete",
-                      style: "destructive",
-                      onPress: () => {
-                        setMessages([]);
-                        setIsBlocked(false);
-                        router.back();
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  className="mt-4 px-5 py-2 bg-indigo-600 rounded-full"
+                >
+                  <Text className="text-white font-semibold text-center">
+                    Back to Groups
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            ) : isBlocked ? (
+              <BlockedOverlay
+                onUnblock={() => setIsBlocked(false)}
+                onDelete={() => {
+                  Alert.alert(
+                    "Delete Chat",
+                    "Are you sure you want to delete this chat?",
+                    [
+                      { text: "Cancel", style: "cancel" },
+                      {
+                        text: "Delete",
+                        style: "destructive",
+                        onPress: () => {
+                          setMessages([]);
+                          setIsBlocked(false);
+                          router.back();
+                        },
                       },
-                    },
-                  ]
-                );
-              }}
-            />
-          ) : (
-            <>
-              {/* Selected Messages Action Bar */}
-              {selectedMessages.length > 0 && (
-                <SelectedMessagesActionBar
-                  selectedCount={selectedMessages.length}
-                  onEdit={editSelectedMessage}
-                  onDelete={deleteSelectedMessages}
-                  onCancel={cancelSelection}
-                />
-              )}
-
-              {/* Messages List */}
-              {type === "group" ? (
-                <MessagesList
-                  type={type}
-                  messages={messages}
-                  setMessages={setMessages}
-                  user={user}
-                  GroupDetails={GroupDetails}
-                  onLongPress={handleLongPress}
-                  selectedMessages={selectedMessages}
-                  fadeAnim={fadeAnim}
-                  flatListRef={flatListRef}
-                  wallpaperUri={wallpaperUri}
-                  onDeleteMessage={deleteSelectedMessages} // For real-time delete
-                  onEditMessage={editSelectedMessage} // For real-time edit
-                  isLoading={isLoading}
-                />
-              ) : (
-                <View>
-                  <Text>Hello</Text>
-                </View>
-              )}
-
-              {/* Send Message Bar */}
-              <SendMessageBar
-                type={type}
-                messageText={messageText}
-                setMessageText={setMessageText}
-                editingMessageId={editingMessageId}
-                cancelEditing={cancelSelection}
-                onSend={handleSend}
-                user={user}
-                handleGetMessage={fetchMessages}
-                GroupDetails={GroupDetails}
+                    ]
+                  );
+                }}
               />
-            </>
-          )}
+            ) : (
+              <>
+                {/* Selected Messages Action Bar */}
+                {selectedMessages.length > 0 && (
+                  <SelectedMessagesActionBar
+                    selectedCount={selectedMessages.length}
+                    onEdit={editSelectedMessage}
+                    onDelete={deleteSelectedMessages}
+                    onCancel={cancelSelection}
+                  />
+                )}
+
+                {/* Messages List */}
+                {type === "group" ? (
+                  <MessagesList
+                    type={type}
+                    messages={messages}
+                    setMessages={setMessages}
+                    user={user}
+                    GroupDetails={GroupDetails}
+                    onLongPress={handleLongPress}
+                    selectedMessages={selectedMessages}
+                    fadeAnim={fadeAnim}
+                    flatListRef={flatListRef}
+                    wallpaperUri={wallpaperUri}
+                    onDeleteMessage={deleteSelectedMessages} // For real-time delete
+                    onEditMessage={editSelectedMessage} // For real-time edit
+                    isLoading={isLoading}
+                  />
+                ) : (
+                  <View>
+                    <Text>Hello</Text>
+                  </View>
+                )}
+
+                {/* Send Message Bar */}
+                <SendMessageBar
+                  type={type}
+                  messageText={messageText}
+                  setMessageText={setMessageText}
+                  editingMessageId={editingMessageId}
+                  cancelEditing={cancelSelection}
+                  onSend={handleSend}
+                  user={user}
+                  handleGetMessage={fetchMessages}
+                  GroupDetails={GroupDetails}
+                />
+              </>
+            )}
         </SafeAreaView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
