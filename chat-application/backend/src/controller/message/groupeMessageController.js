@@ -542,186 +542,186 @@ export const DeleteGroupMessage = async (req, res) => {
   }
 };
 
-// bloack user in group
-export const BlockUserInGroup = async (req, res) => {
-  try {
-    const userId = req.user.id; // logged-in user
-    const { groupId, userToBlockId } = req.body;
+// // bloack user in group
+// export const BlockUserInGroup = async (req, res) => {
+//   try {
+//     const userId = req.user.id; // logged-in user
+//     const { groupId, userToBlockId } = req.body;
 
-    if (!groupId) {
-      return res.status(400).json({ error: "Group ID is required" });
-    }
-    if (!userToBlockId) {
-      return res.status(400).json({ error: "User ID to block is required" });
-    }
+//     if (!groupId) {
+//       return res.status(400).json({ error: "Group ID is required" });
+//     }
+//     if (!userToBlockId) {
+//       return res.status(400).json({ error: "User ID to block is required" });
+//     }
 
-    // 🔹 Check if already blocked
-    const [alreadyBlockedRows] = await group_members.execute(
-      `SELECT * FROM group_members 
-       WHERE group_id = ? 
-       AND user_id = ? 
-       AND Block_Group = ?`,
-      [groupId, userToBlockId, "block"] // only 3 params
-    );
+//     // 🔹 Check if already blocked
+//     const [alreadyBlockedRows] = await group_members.execute(
+//       `SELECT * FROM group_members 
+//        WHERE group_id = ? 
+//        AND user_id = ? 
+//        AND Block_Group = ?`,
+//       [groupId, userToBlockId, "block"] // only 3 params
+//     );
 
-    if (alreadyBlockedRows.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "User is already blocked in this group" });
-    }
+//     if (alreadyBlockedRows.length > 0) {
+//       return res
+//         .status(400)
+//         .json({ error: "User is already blocked in this group" });
+//     }
 
-    // 🔹 Block the user
-    const [blockUser] = await group_members.execute(
-      `UPDATE group_members 
-       SET Block_Group = ? 
-       WHERE group_id = ? 
-       AND user_id = ?`,
-      ["block", groupId, userToBlockId] // only 3 params
-    );
+//     // 🔹 Block the user
+//     const [blockUser] = await group_members.execute(
+//       `UPDATE group_members 
+//        SET Block_Group = ? 
+//        WHERE group_id = ? 
+//        AND user_id = ?`,
+//       ["block", groupId, userToBlockId] // only 3 params
+//     );
 
-    if (blockUser.affectedRows === 0) {
-      return res.status(404).json({ error: "User not found in the group" });
-    }
+//     if (blockUser.affectedRows === 0) {
+//       return res.status(404).json({ error: "User not found in the group" });
+//     }
 
-    return res.json({
-      success: true,
-      message: "User blocked in group successfully",
-      blockUser,
-    });
-  } catch (error) {
-    console.log("Internal Server Error:", error);
-    return res.status(500).json({ error: "Server error", details: error });
-  }
-};
+//     return res.json({
+//       success: true,
+//       message: "User blocked in group successfully",
+//       blockUser,
+//     });
+//   } catch (error) {
+//     console.log("Internal Server Error:", error);
+//     return res.status(500).json({ error: "Server error", details: error });
+//   }
+// };
 
-// unblock user in group
-export const unBloackGroupUser = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { groupId, userToUnblockId } = req.body;
+// // unblock user in group
+// export const unBloackGroupUser = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { groupId, userToUnblockId } = req.body;
 
-    if (!groupId) {
-      return res.status(400).json({ error: "Group ID is required" });
-    }
-    if (!userToUnblockId) {
-      return res.status(400).json({ error: "User ID to unblock is required" });
-    }
+//     if (!groupId) {
+//       return res.status(400).json({ error: "Group ID is required" });
+//     }
+//     if (!userToUnblockId) {
+//       return res.status(400).json({ error: "User ID to unblock is required" });
+//     }
 
-    // 🔹 Check if user is blocked in the group
-    const [isBlockedRows] = await group_members.execute(
-      `SELECT * FROM group_members 
-       WHERE group_id = ? 
-       AND user_id = ? 
-       AND Block_Group = ?`,
-      [groupId, userToUnblockId, "block"]
-    );
+//     // 🔹 Check if user is blocked in the group
+//     const [isBlockedRows] = await group_members.execute(
+//       `SELECT * FROM group_members 
+//        WHERE group_id = ? 
+//        AND user_id = ? 
+//        AND Block_Group = ?`,
+//       [groupId, userToUnblockId, "block"]
+//     );
 
-    if (isBlockedRows.length === 0) {
-      return res
-        .status(400)
-        .json({ error: "User is not blocked in this group" });
-    }
+//     if (isBlockedRows.length === 0) {
+//       return res
+//         .status(400)
+//         .json({ error: "User is not blocked in this group" });
+//     }
 
-    // 🔹 Unblock the user
-    const [unblockResult] = await group_members.execute(
-      `UPDATE group_members 
-       SET Block_Group = ? 
-       WHERE group_id = ? 
-       AND user_id = ?`,
-      ["unblock", groupId, userToUnblockId]
-    );
+//     // 🔹 Unblock the user
+//     const [unblockResult] = await group_members.execute(
+//       `UPDATE group_members 
+//        SET Block_Group = ? 
+//        WHERE group_id = ? 
+//        AND user_id = ?`,
+//       ["unblock", groupId, userToUnblockId]
+//     );
 
-    // Check if row updated
-    if (unblockResult.affectedRows === 0) {
-      return res.status(404).json({ error: "User not found in the group" });
-    }
+//     // Check if row updated
+//     if (unblockResult.affectedRows === 0) {
+//       return res.status(404).json({ error: "User not found in the group" });
+//     }
 
-    return res.json({
-      success: true,
-      message: "User unblocked in group successfully",
-      result: unblockResult,
-    });
+//     return res.json({
+//       success: true,
+//       message: "User unblocked in group successfully",
+//       result: unblockResult,
+//     });
 
-  } catch (error) {
-    console.log("Internal Error in unblock user:", error);
-    return res.status(500).json({
-      error: "Server error",
-      message: error.message,
-    });
-  }
-};
+//   } catch (error) {
+//     console.log("Internal Error in unblock user:", error);
+//     return res.status(500).json({
+//       error: "Server error",
+//       message: error.message,
+//     });
+//   }
+// };
 
-// leave group
-export const leaveGroup = async (req, res) => {
-  try {
-    const userId = req.user.id;
-    const { groupId } = req.body;
+// // leave group
+// export const leaveGroup = async (req, res) => {
+//   try {
+//     const userId = req.user.id;
+//     const { groupId } = req.body;
 
-    if (!groupId) {
-      return res.status(400).json({ error: "Group ID is required" });
-    }
+//     if (!groupId) {
+//       return res.status(400).json({ error: "Group ID is required" });
+//     }
 
-    //check if user is already left the group
-    const [alreadyLeftRows] = await group_members.execute(
-      `SELECT * FROM group_members 
-       WHERE group_id = ? 
-       AND user_id = ? 
-       AND Leave_Group = ?`,
-      [groupId, userId, 1]
-    );
-    if (alreadyLeftRows.length > 0) {
-      return res
-        .status(400)
-        .json({ error: "You have already left this group" });
-    }
+//     //check if user is already left the group
+//     const [alreadyLeftRows] = await group_members.execute(
+//       `SELECT * FROM group_members 
+//        WHERE group_id = ? 
+//        AND user_id = ? 
+//        AND Leave_Group = ?`,
+//       [groupId, userId, 1]
+//     );
+//     if (alreadyLeftRows.length > 0) {
+//       return res
+//         .status(400)
+//         .json({ error: "You have already left this group" });
+//     }
 
-    // check its user or admin leaving the group
-    const  [groupInfoRows] = await create_groups.execute(
-      `SELECT admin_id FROM create_groups WHERE id = ?`,
-      [groupId, userId]
-    );
+//     // check its user or admin leaving the group
+//     const  [groupInfoRows] = await create_groups.execute(
+//       `SELECT admin_id FROM create_groups WHERE id = ?`,
+//       [groupId, userId]
+//     );
     
-    const [groupeMemberRows] = await group_members.execute(
-      `SELECT * FROM group_members WHERE group_id = ? AND user_id = ?`,
-      [groupId, userId]
-    );
-    if(groupeMemberRows.length === 0 || groupeMemberRows[0].Leave_Group === 1){
-      return res
-      .status(400)
-      .json({ error: "You are not a member of this group"});
-    }
+//     const [groupeMemberRows] = await group_members.execute(
+//       `SELECT * FROM group_members WHERE group_id = ? AND user_id = ?`,
+//       [groupId, userId]
+//     );
+//     if(groupeMemberRows.length === 0 || groupeMemberRows[0].Leave_Group === 1){
+//       return res
+//       .status(400)
+//       .json({ error: "You are not a member of this group"});
+//     }
 
-    const adminId = groupInfoRows[0].admin_id;
-    if (adminId === groupeMemberRows[0].user_id) {
-      return res
-        .status(403)
-        .json({ error: "Admin cannot leave the group. Please delete the group instead." });
-    }
+//     const adminId = groupInfoRows[0].admin_id;
+//     if (adminId === groupeMemberRows[0].user_id) {
+//       return res
+//         .status(403)
+//         .json({ error: "Admin cannot leave the group. Please delete the group instead." });
+//     }
 
-    // leave the group
-    const [leaveGroupResult] = await group_members.execute(
-      `UPDATE group_members 
-       SET Leave_Group = ? 
-       WHERE group_id = ? 
-       AND user_id = ?`,
-      [1, groupId, userId]
-    );
+//     // leave the group
+//     const [leaveGroupResult] = await group_members.execute(
+//       `UPDATE group_members 
+//        SET Leave_Group = ? 
+//        WHERE group_id = ? 
+//        AND user_id = ?`,
+//       [1, groupId, userId]
+//     );
 
-    if (leaveGroupResult.affectedRows === 0) {
-      return res.status(404).json({ error: "Group not found" });
-    }
+//     if (leaveGroupResult.affectedRows === 0) {
+//       return res.status(404).json({ error: "Group not found" });
+//     }
 
-    return res.json({
-      success: true,
-      message: "Left group successfully",
-      leaveGroupResult,
-    })
+//     return res.json({
+//       success: true,
+//       message: "Left group successfully",
+//       leaveGroupResult,
+//     })
 
     
-  } catch (error) {
-    console.log("Internal Error in leave group:", error);
+//   } catch (error) {
+//     console.log("Internal Error in leave group:", error);
     
-  }
-}
+//   }
+// }
 
 
