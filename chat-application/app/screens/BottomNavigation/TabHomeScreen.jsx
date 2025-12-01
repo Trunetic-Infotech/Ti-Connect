@@ -13,15 +13,16 @@ import { LinearGradient } from "expo-linear-gradient";
 
 // Screens
 import Chats from "../Chats";
-import UnRead from "../pages/UnRead";
+// import UnRead from "../pages/UnRead";
 import Groups from "../pages/Groups";
-import CallList from "../pages/CallList";
+// import CallList from "../pages/CallList";
 import Setting from "../pages/Setting";
 
 const Tab = createBottomTabNavigator();
 const { width } = Dimensions.get("window");
+// const iconNames = ["comment-dots", "users", "phone-alt", "cog"];
 
-const iconNames = ["comment-dots", "bell", "users", "phone-alt", "cog"];
+const iconNames = ["comment-dots", "users", "cog"];
 
 // ✅ Custom background with dynamic notch + border
 const TabBg = ({
@@ -135,9 +136,9 @@ const TabHomeScreen = () => {
       tabBar={(props) => <CustomTabBar {...props} />}
     >
       <Tab.Screen name="Chats" component={Chats} />
-      <Tab.Screen name="UnRead" component={UnRead} />
+      {/* <Tab.Screen name="UnRead" component={UnRead} /> */}
       <Tab.Screen name="Groups" component={Groups} />
-      <Tab.Screen name="Calls" component={CallList} />
+      {/* <Tab.Screen name="Calls" component={CallList} /> */}
       <Tab.Screen name="Settings" component={Setting} />
     </Tab.Navigator>
   );
