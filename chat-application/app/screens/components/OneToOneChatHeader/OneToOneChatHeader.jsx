@@ -132,7 +132,7 @@ const OneToOneChatHeader = ({
 
             {/* Right: Audio Call, Video Call, Menu */}
             <View className="flex-row items-center space-x-4 gap-2">
-              <TouchableOpacity
+              {/* <TouchableOpacity
                 onPress={requestAudioPermissionAndCall}
                 activeOpacity={0.7}
                 className="p-2 rounded-full bg-white/25 shadow-md"
@@ -155,7 +155,7 @@ const OneToOneChatHeader = ({
                   size={20}
                   color="white"
                 />
-              </TouchableOpacity>
+              </TouchableOpacity> */}
 
               <TouchableOpacity
                 activeOpacity={0.8}
