@@ -1,4 +1,3 @@
-import React, { useState } from "react";
 import {
   View,
   Text,
@@ -13,18 +12,20 @@ import { Feather, Ionicons, MaterialIcons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useSelector, useDispatch } from "react-redux";
 import { setToken, setUser } from "../../redux/features/auth";
+import { toggleTheme } from "../../redux/features/themeSlice"; // ← Redux action
 import axios from "axios";
 import { disconnectSocket } from "./../../services/socketService";
 import * as SecureStore from "expo-secure-store";
 
-const SettingItem = ({ icon, label, onPress, color = "#3b82f6", rightArrow = true }) => (
+const SettingItem = ({ icon, label, onPress, color = "#3b82f6", rightArrow = true, textColor }) => (
   <TouchableOpacity
     onPress={onPress}
     className="flex-row items-center justify-between py-3"
   >
     <View className="flex-row items-center gap-3">
       {icon}
-      <Text className="text-base">{label}</Text>
+      <Text className="text-base"
+        style={{ color: textColor }}>{label}</Text>
     </View>
     {rightArrow && <Feather name="chevron-right" size={20} color="#aaa" />}
   </TouchableOpacity>
@@ -32,12 +33,11 @@ const SettingItem = ({ icon, label, onPress, color = "#3b82f6", rightArrow = tru
 
 const Setting = () => {
   const router = useRouter();
+  const dispatch = useDispatch();
+
   const user = useSelector((state) => state.auth.user);
   const token = useSelector((state) => state.auth.token);
-  const [darkMode, setDarkMode] = useState(false);
-  const [notifications, setNotifications] = useState(true);
-
-  const dispatch = useDispatch();
+  const darkMode = useSelector((state) => state.theme.darkMode); // ← From Redux
 
   const colors = {
     background: darkMode ? "#121212" : "#ffffff",
@@ -97,12 +97,6 @@ const Setting = () => {
           <Text className="text-2xl font-bold" style={{ color: colors.text }}>
             Settings
           </Text>
-          {/* <Ionicons
-            name="close"
-            size={24}
-            color="#3b82f6"
-            onPress={() => router.back()}
-          /> */}
         </View>
 
         {/* Profile */}
@@ -148,15 +142,17 @@ const Setting = () => {
             PREFERENCES
           </Text>
 
-          <View className="flex-row items-center justify-between ">
+          <View className="flex-row items-center justify-between">
             <View className="flex-row items-center gap-3">
               <Feather name="moon" size={20} color="#3b82f6" />
-              {/* TODO: Add Global Context for theme */}
               <Text className="text-base" style={{ color: colors.text }}>
                 Dark Mode
               </Text>
             </View>
-            <Switch value={darkMode} onValueChange={setDarkMode} />
+            <Switch
+              value={darkMode}
+              onValueChange={() => dispatch(toggleTheme())} // ← Redux toggle
+            />
           </View>
 
           <View className="flex-row items-center justify-between">
@@ -166,7 +162,7 @@ const Setting = () => {
                 Notifications
               </Text>
             </View>
-            <Switch value={notifications} onValueChange={setNotifications} />
+            <Switch value={true} onValueChange={() => { }} />
           </View>
         </View>
 
@@ -181,6 +177,7 @@ const Setting = () => {
           <SettingItem
             icon={<Feather name="lock" size={20} color="#3b82f6" />}
             label="Privacy"
+            textColor={colors.text}
             onPress={() => router.push("/screens/pages/PrivacyPage")}
           />
         </View>
@@ -197,11 +194,13 @@ const Setting = () => {
           <SettingItem
             icon={<Ionicons name="information-circle-outline" size={20} color="#3b82f6" />}
             label="About App"
+            textColor={colors.text}
             onPress={() => router.push("/screens/pages/AboutAppInformation")}
           />
           <SettingItem
             icon={<Feather name="help-circle" size={20} color="#3b82f6" />}
             label="Help & Support"
+            textColor={colors.text}
             onPress={() => router.push("/screens/pages/HelpCenter")}
           />
 
@@ -211,7 +210,9 @@ const Setting = () => {
             className="flex-row items-center gap-3 mt-4"
           >
             <MaterialIcons name="logout" size={20} color="#ef4444" />
-            <Text className="text-base font-medium text-red-600">Logout</Text>
+            <Text className="text-base font-medium" style={{ color: darkMode ? "#f87171" : "#dc2626" }}>
+              Logout
+            </Text>
           </TouchableOpacity>
         </View>
       </ScrollView>

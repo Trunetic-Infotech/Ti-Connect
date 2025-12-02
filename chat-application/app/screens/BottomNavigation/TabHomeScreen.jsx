@@ -10,7 +10,7 @@ import Animated, {
 } from "react-native-reanimated";
 import Svg, { Path } from "react-native-svg";
 import { LinearGradient } from "expo-linear-gradient";
-
+import { useSelector } from "react-redux";
 // Screens
 import Chats from "../Chats";
 // import UnRead from "../pages/UnRead";
@@ -64,6 +64,9 @@ const TabBg = ({
 };
 
 const CustomTabBar = ({ state, navigation }) => {
+  const darkMode = useSelector((state) => state.theme.darkMode);
+  const tabBarBgColor = darkMode ? "#111111" : "#f8f9fa";        // dark or light bg
+  const inactiveIconColor = darkMode ? "#ffffff" : "#333333";   // inactive icons
   const animations = state.routes.map(() => ({
     translateY: useSharedValue(0),
   }));
@@ -72,6 +75,7 @@ const CustomTabBar = ({ state, navigation }) => {
     <View style={styles.tabBar}>
       {/* ✅ Curve notch with border */}
       <TabBg
+        color={tabBarBgColor}
         activeIndex={state.index}
         notchWidth={110}
         notchDepth={45}
@@ -115,11 +119,11 @@ const CustomTabBar = ({ state, navigation }) => {
                   <FontAwesome5
                     name={iconNames[index]}
                     size={24}
-                    color="#fff"
+                    color={inactiveIconColor}
                   />
                 </LinearGradient>
               ) : (
-                <FontAwesome5 name={iconNames[index]} size={20} color="#333" />
+                <FontAwesome5 name={iconNames[index]} size={20} color={inactiveIconColor} />
               )}
             </Animated.View>
           </TouchableOpacity>
