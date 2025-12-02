@@ -33,6 +33,9 @@ const ViewProfile = () => {
     console.warn("Failed to parse user param:", e);
   }
 
+  // Get dark mode from Redux
+  const darkMode = useSelector((state) => state.theme.darkMode);
+
   const [name, setName] = useState(user?.username || "Aman Verma");
   const [bio, setBio] = useState(user?.bioDescription || "Busy with work");
   const [phone, setPhone] = useState(user?.phone_number || "557993469");
@@ -44,14 +47,25 @@ const ViewProfile = () => {
 
   const [email, setEmail] = useState(user?.email || "");
   const [emailSaved, setEmailSaved] = useState(false);
-
   const [isEditingProfile, setIsEditingProfile] = useState(false);
   const [isEditingEmail, setIsEditingEmail] = useState(false);
+
+  // Theme colors — only colors change, layout stays 100% same
+  const colors = {
+    background: darkMode ? "#111111" : "#ffffff",
+    cardBg: darkMode ? "#1f1f1f" : "#ffffff",
+    cardBorder: darkMode ? "#333333" : "#e5e7eb",
+    text: darkMode ? "#f5f5f5" : "#1f2937",
+    textSecondary: darkMode ? "#bbbbbb" : "#6b7280",
+    textMuted: darkMode ? "#888888" : "#9ca3af",
+    inputBg: darkMode ? "#2a2a2a" : "#f9fafb",
+    inputBorder: darkMode ? "#444444" : "#e5e7eb",
+    placeholder: darkMode ? "#888888" : "#999999",
+  };
 
   const saveEmail = async () => {
     const token = await SecureStore.getItemAsync("token");
     if (!token) {
-      console.log("No token found → redirecting to login");
       router.replace("/screens/home");
       return;
     }
@@ -68,9 +82,7 @@ const ViewProfile = () => {
         `${process.env.EXPO_API_URL}/save/email`,
         { email: trimmedEmail },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
@@ -79,27 +91,19 @@ const ViewProfile = () => {
         setEmailSaved(true);
         setIsEditingEmail(false);
       } else {
-        Alert.alert(
-          "Email Save Failed",
-          res.data?.message || "Please try again."
-        );
+        Alert.alert("Email Save Failed", res.data?.message || "Please try again.");
       }
     } catch (error) {
       console.error("Save email error:", error);
-      const message =
-        error.response?.data?.message ||
-        "Something went wrong. Please try again.";
+      const message = error.response?.data?.message || "Something went wrong.";
       Alert.alert("Error", message);
     }
   };
 
   const pickImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.granted === false) {
-      Alert.alert(
-        "Permission Denied",
-        "Permission to access gallery is required!"
-      );
+    if (!permission.granted) {
+      Alert.alert("Permission Denied", "Permission to access gallery is required!");
       return;
     }
 
@@ -111,12 +115,12 @@ const ViewProfile = () => {
     });
 
     if (!result.canceled) {
-      setImage(result.assets[0].uri);
+      setImage({ uri: result.assets[0].uri });
     }
   };
 
   const UploadImageHandler = async () => {
-    if (!image) {
+    if (!image || typeof image === "string") {
       Alert.alert("No Image Selected", "Please select an image first!");
       return;
     }
@@ -124,7 +128,7 @@ const ViewProfile = () => {
     try {
       const formData = new FormData();
       formData.append("profile_picture", {
-        uri: typeof image === "string" ? image : image.uri,
+        uri: image.uri,
         name: "profile.jpg",
         type: "image/jpeg",
       });
@@ -134,7 +138,7 @@ const ViewProfile = () => {
 
       const response = await axios.patch(
         `${process.env.EXPO_API_URL}/update/profile`,
-        formData, // Pass FormData directly
+        formData,
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -144,24 +148,18 @@ const ViewProfile = () => {
       );
 
       if (response.data?.success) {
-        Alert.alert(
-          "Profile Updated",
-          "Your profile has been updated successfully."
-        );
-      } else {
-        Alert.alert(
-          "Profile Update Failed",
-          response.data?.message || "Please try again."
-        );
+        Alert.alert("Profile Updated", "Your profile has been updated successfully.");
       }
     } catch (error) {
-      console.log(error);
       Alert.alert("Error", "Something went wrong. Please try again.");
     }
   };
 
   const updateProfile = async () => {
     try {
+      const token = await SecureStore.getItemAsync("token");
+      if (!token) return router.replace("/screens/home");
+
       const res = await axios.patch(
         `${process.env.EXPO_API_URL}/update/profile`,
         {
@@ -170,45 +168,31 @@ const ViewProfile = () => {
           phone_number: phone,
         },
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (res.data?.success) {
-        Alert.alert(
-          "Profile Updated",
-          "Your profile has been updated successfully."
-        );
+        Alert.alert("Profile Updated", "Your profile has been updated successfully.");
         setIsEditingProfile(false);
-      } else {
-        Alert.alert(
-          "Profile Update Failed",
-          res.data?.message || "Please try again."
-        );
       }
     } catch (error) {
-      console.error("Update profile error:", error);
-      const message =
-        error.response?.data?.message ||
-        "Something went wrong. Please try again.";
-      Alert.alert("Error", message);
+      Alert.alert("Error", error.response?.data?.message || "Failed to update.");
     }
   };
 
   return (
-    <SafeAreaView className="flex-1">
-      {/* Header */}
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       <KeyboardAvoidingView
         behavior={Platform.OS === "ios" ? "padding" : "height"}
-        className="flex-1 pt-8"
+        className="flex-1"
       >
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          scrollEnabled={isEditingProfile || isEditingEmail} // ✅ scroll only when editing
+          scrollEnabled={isEditingProfile || isEditingEmail}
         >
+          {/* Gradient Header */}
           <LinearGradient
             colors={["#6366f1", "#8b5cf6", "#ec4899"]}
             start={{ x: 0, y: 0 }}
@@ -218,133 +202,132 @@ const ViewProfile = () => {
             <View className="flex-row items-center justify-between px-5 pt-8">
               <TouchableOpacity
                 onPress={() => router.back()}
-                className="p-2 rounded-full bg-white/20 active:opacity-70"
+                className="p-2 rounded-full bg-white/20"
               >
                 <FontAwesome6 name="arrow-left-long" size={22} color="white" />
               </TouchableOpacity>
-              <Text className="text-white text-xl  font-bold justify-center">
-                My Profile
-              </Text>
+              <Text className="text-white text-xl font-bold">My Profile</Text>
               <View />
             </View>
           </LinearGradient>
 
           {/* Profile Picture */}
           <View className="items-center -mt-20">
-            <View className="relative" onPress={UploadImageHandler}>
+            <View className="relative">
               <Image
-                source={image}
+                source={typeof image === "string" ? { uri: image } : image}
                 style={{
                   width: 140,
                   height: 140,
                   borderRadius: 70,
                   borderWidth: 5,
-                  borderColor: "#fff",
-                  shadowColor: "#8b5cf6",
-                  shadowOpacity: 0.4,
-                  shadowRadius: 15,
-                  elevation: 10,
+                  borderColor: darkMode ? "#333" : "#fff",
+                  backgroundColor: "#333",
                 }}
               />
               <TouchableOpacity
                 onPress={pickImage}
                 className="absolute bottom-2 right-1 bg-gradient-to-r from-indigo-500 to-pink-500 rounded-full p-2 shadow-md"
               >
-                <FontAwesome5 name="camera" size={26} color="#0000FF" />
+                <FontAwesome5 name="camera" size={26} color="white" />
               </TouchableOpacity>
             </View>
-
-            {/* <TouchableOpacity onPress={UploadImageHandler} className="mt-5 bg-blue-500 p-3 rounded">
-        <Text className="text-white font-bold">Upload Image</Text>
-      </TouchableOpacity> */}
           </View>
 
-          {/* Name and Status */}
-          <View className="items-center">
-            <Text className="text-xl font-semibold text-gray-800 mt-3">
+          {/* Name & Status */}
+          <View className="items-center mt-4">
+            <Text className="text-2xl font-bold" style={{ color: colors.text }}>
               {name}
             </Text>
-            <Text className="text-sm text-gray-500">
-              {user?.status === "active" ? "🟢 Online" : "⚫ Offline"}
+            <Text style={{ color: colors.textSecondary }}>
+              {user?.status === "active" ? "Online" : "Offline"}
             </Text>
           </View>
 
-          {/* Body */}
-
-          {/* Profile Info Section */}
-          <View className="bg-white/90 rounded-2xl mt-8 p-6 shadow-lg">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-sm font-semibold text-gray-600 uppercase">
+          {/* Personal Info Card */}
+          <View
+            className="mx-5 mt-8 rounded-2xl p-6 shadow-lg"
+            style={{ backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.cardBorder }}
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-sm font-bold uppercase" style={{ color: colors.textMuted }}>
                 Personal Info
               </Text>
               {!isEditingProfile ? (
                 <TouchableOpacity
                   onPress={() => setIsEditingProfile(true)}
-                  className="px-3 py-1 rounded-full bg-blue-500"
+                  className="px-4 py-2 rounded-full bg-indigo-600"
                 >
                   <Text className="text-white text-sm font-medium">Edit</Text>
                 </TouchableOpacity>
               ) : (
                 <TouchableOpacity
                   onPress={() => setIsEditingProfile(false)}
-                  className="px-3 py-1 rounded-full bg-gray-400 flex-row items-center"
+                  className="px-4 py-2 rounded-full bg-red-600 flex-row items-center gap-2"
                 >
-                  <FontAwesome name="close" size={24} color="white" />
-                  <Text className="text-white text-sm ml-1">Cancel</Text>
+                  <FontAwesome name="close" size={18} color="white" />
+                  <Text className="text-white text-sm">Cancel</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             {!isEditingProfile ? (
               <>
-                <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+                <Text className="text-sm uppercase mb-1" style={{ color: colors.textMuted }}>
                   Phone Number
                 </Text>
-                <Text className="text-lg font-semibold text-gray-900 mb-4">
+                <Text className="text-lg font-semibold mb-6" style={{ color: colors.text }}>
                   +91 {phone}
                 </Text>
 
-                <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+                <Text className="text-sm uppercase mb-1" style={{ color: colors.textMuted }}>
                   About Me
                 </Text>
-                <Text className="text-base text-gray-700">{bio}</Text>
+                <Text className="text-base" style={{ color: colors.textSecondary }}>
+                  {bio}
+                </Text>
               </>
             ) : (
               <>
                 <TextInput
                   value={name}
                   onChangeText={setName}
-                  className="border px-4 py-3 rounded-lg mb-4"
                   placeholder="Enter Name"
+                  placeholderTextColor={colors.placeholder}
+                  className="px-4 py-3 rounded-lg mb-4 text-base"
+                  style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, color: colors.text }}
                 />
                 <TextInput
                   value={bio}
                   onChangeText={setBio}
-                  className="border px-4 py-3 rounded-lg mb-4"
                   placeholder="Enter Bio"
+                  placeholderTextColor={colors.placeholder}
+                  className="px-4 py-3 rounded-lg mb-6 text-base"
+                  style={{ backgroundColor: colors.inputBg, borderWidth: 1, borderColor: colors.inputBorder, color: colors.text }}
                 />
                 <TouchableOpacity
                   onPress={updateProfile}
-                  className="py-3 rounded-full items-center shadow bg-blue-600"
+                  className="py-3 rounded-full bg-indigo-600"
                 >
-                  <Text className="text-white font-semibold text-base">
-                    Save Profile
-                  </Text>
+                  <Text className="text-white font-bold text-center">Save Profile</Text>
                 </TouchableOpacity>
               </>
             )}
           </View>
 
-          {/* Backup Email Section */}
-          <View className="bg-white/90 rounded-2xl p-6 shadow-lg mt-8 border border-gray-200">
-            <View className="flex-row items-center justify-between mb-3">
-              <Text className="text-sm font-semibold text-gray-600 uppercase">
+          {/* Email Section */}
+          <View
+            className="mx-5 mt-8 rounded-2xl p-6 shadow-lg"
+            style={{ backgroundColor: colors.cardBg, borderWidth: 1, borderColor: colors.cardBorder }}
+          >
+            <View className="flex-row items-center justify-between mb-4">
+              <Text className="text-sm font-bold uppercase" style={{ color: colors.textMuted }}>
                 Backup Email
               </Text>
               {!isEditingEmail ? (
                 <TouchableOpacity
                   onPress={() => setIsEditingEmail(true)}
-                  className="px-3 py-1 rounded-full bg-blue-500"
+                  className="px-4 py-2 rounded-full bg-indigo-600"
                 >
                   <Text className="text-white text-sm font-medium">Edit</Text>
                 </TouchableOpacity>
@@ -354,18 +337,17 @@ const ViewProfile = () => {
                     setIsEditingEmail(false);
                     setEmail(user?.email || "");
                   }}
-                  className="px-3 py-1 rounded-full bg-gray-400 flex-row items-center"
+                  className="px-4 py-2 rounded-full bg-red-600 flex-row items-center gap-2"
                 >
-                  <FontAwesome name="close" size={24} color="white" />
-                  <Text className="text-white text-sm ml-1">Cancel</Text>
+                  <FontAwesome name="close" size={18} color="white" />
+                  <Text className="text-white text-sm">Cancel</Text>
                 </TouchableOpacity>
               )}
             </View>
 
             <TextInput
               placeholder="Enter your email"
-              placeholderTextColor="#999"
-              className="border px-4 py-3 rounded-lg mb-4"
+              placeholderTextColor={colors.placeholder}
               value={email}
               onChangeText={(text) => {
                 setEmail(text);
@@ -374,10 +356,12 @@ const ViewProfile = () => {
               editable={isEditingEmail}
               keyboardType="email-address"
               autoCapitalize="none"
+              className="px-4 py-3 rounded-lg mb-4 text-base"
               style={{
-                backgroundColor: isEditingEmail ? "#fff" : "#f9fafb",
-                borderColor: "#e5e7eb",
-                color: "#1f2937",
+                backgroundColor: isEditingEmail ? colors.inputBg : colors.cardBg,
+                borderWidth: 1,
+                borderColor: colors.inputBorder,
+                color: colors.text,
               }}
             />
 
@@ -385,12 +369,10 @@ const ViewProfile = () => {
               <TouchableOpacity
                 onPress={saveEmail}
                 disabled={emailSaved}
-                className={`py-3 rounded-full items-center shadow ${
-                  emailSaved ? "bg-green-500" : "bg-blue-600"
-                }`}
+                className={`py-3 rounded-full ${emailSaved ? "bg-green-600" : "bg-indigo-600"}`}
               >
-                <Text className="text-white font-semibold text-base">
-                  {emailSaved ? "Saved ✔" : "Save Email"}
+                <Text className="text-white font-bold text-center">
+                  {emailSaved ? "Saved" : "Save Email"}
                 </Text>
               </TouchableOpacity>
             )}

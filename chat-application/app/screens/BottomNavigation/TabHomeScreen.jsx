@@ -119,7 +119,7 @@ const CustomTabBar = ({ state, navigation }) => {
                   <FontAwesome5
                     name={iconNames[index]}
                     size={24}
-                    color={inactiveIconColor}
+                    color="#ffffff"
                   />
                 </LinearGradient>
               ) : (

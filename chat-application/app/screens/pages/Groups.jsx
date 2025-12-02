@@ -16,6 +16,7 @@ import logoImg from "../../../assets/images/Chat-Logo.png";
 import * as SecureStore from "expo-secure-store";
 import axios from "axios";
 import { getSocket } from "../../services/socketService";
+import { useSelector } from "react-redux";
 
 const Groups = () => {
   const [search, setSearch] = useState("");
@@ -23,7 +24,20 @@ const Groups = () => {
   const [groups, setGroups] = useState([]);
   const navigation = useNavigation();
   const router = useRouter();
-
+  const darkMode = useSelector((state) => state.theme.darkMode);
+  const colors = {
+    background: darkMode ? "#111111" : "#f1f5f9",
+    headerBg: darkMode ? "#1e1b4b" : "#6366f1",
+    cardBg: darkMode ? "#1f1f1f" : "#e0e7ff",        // indigo-100 → dark version
+    cardBorder: darkMode ? "#333333" : "#c7d2fe",
+    text: darkMode ? "#f5f5f5" : "#1f2937",
+    textSecondary: darkMode ? "#bbbbbb" : "#6b7280",
+    textMuted: darkMode ? "#888888" : "#9ca3af",
+    searchBg: darkMode ? "#2a2a2a" : "#ffffff",
+    tabActive: darkMode ? "#4f46e5" : "#6366f1",
+    tabInactive: darkMode ? "#374151" : "#a5b4fc",
+    placeholder: darkMode ? "#888888" : "#999999",
+  };
   // 🔹 Fetch groups from backend
   const fetchGroupsList = async () => {
     const token = await SecureStore.getItemAsync("token");
@@ -134,21 +148,23 @@ const Groups = () => {
 
 
   return (
-    <SafeAreaView className="flex-1 bg-[#f1f5f9]">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Header */}
-      <View className="px-5 pt-6 pb-3 bg-indigo-600 rounded-b-3xl">
+      <View className="px-5 pt-6 pb-3 rounded-b-3xl" style={{ backgroundColor: colors.headerBg }}>
         <Image
           source={logoImg}
           style={{ width: 200, height: 46, alignSelf: "center" }}
         />
 
         {/* Search Bar */}
-        <View className="flex-row items-center bg-white rounded-full px-5 py-0 shadow-sm mt-3">
-          <Feather name="search" size={20} color="#555" />
+        <View className="flex-row items-center rounded-full px-5 py-0 shadow-sm mt-3"
+          style={{ backgroundColor: colors.searchBg }}>
+          <Feather name="search" size={20} color={colors.textSecondary} />
           <TextInput
             placeholder="Search groups..."
-            className="ml-3 flex-1 text-base text-gray-800"
-            placeholderTextColor="#999"
+            placeholderTextColor={colors.placeholder}
+            className="ml-3 flex-1 text-base"
+            style={{ color: colors.text }}
             value={search}
             onChangeText={setSearch}
           />
@@ -161,16 +177,17 @@ const Groups = () => {
           { title: "All", screen: "Chats", type: "navigate" },
           // { title: "Unread", screen: "UnRead", type: "navigate" },
           { title: "Groups", type: "filter" }, // local filter
-        ].map((item, index) => (
+        ].map((item) => (
           <TouchableOpacity
-            key={index}
+            key={item.title}
             onPress={() => {
-              if (item.type === "filter") setSelectedTab("Groups");
+              if (item.type === "filter") setSelectedTab(item.title);
               else navigation.navigate(item.screen);
             }}
-            className={`flex-1 mx-1 py-2 rounded-full ${selectedTab === item.title ? "bg-indigo-600" : "bg-indigo-300"
-              }`}
-            activeOpacity={0.9}
+            style={{
+              backgroundColor: selectedTab === item.title ? colors.tabActive : colors.tabInactive,
+            }}
+            className="flex-1 mx-1 py-2 rounded-full"
           >
             <Text className="text-center text-white font-semibold">
               {item.title}
@@ -182,21 +199,18 @@ const Groups = () => {
       {/* No Groups Found */}
       {filteredGroups.length === 0 && (
         <View className="flex-1 items-center justify-center mt-20 px-6">
-          <FontAwesome5 name="users-slash" size={64} color="#9ca3af" />
-          <Text className="text-xl font-bold text-gray-700 mt-4">
-            No Groups Found
-          </Text>
-          <Text className="text-sm text-gray-500 mt-2 text-center">
+          <FontAwesome5 name="users-slash" size={64} color={colors.textMuted} />
+          <Text className="text-xl font-bold mt-4" style={{ color: colors.text }}>No Groups Found</Text>
+          <Text className="text-sm mt-2 text-center" style={{ color: colors.textSecondary }}>
             Try creating a new group or adjust your search.
           </Text>
 
           <TouchableOpacity
             onPress={() => router.push("/screens/pages/CreateGroup")}
-            className="mt-6 bg-indigo-600 px-6 py-3 rounded-full shadow-md"
+            className="mt-6 px-6 py-3 rounded-full shadow-md"
+            style={{ backgroundColor: colors.tabActive }}
           >
-            <Text className="text-white font-semibold text-base">
-              Create New Group
-            </Text>
+            <Text className="text-white font-semibold text-base">Create New Group</Text>
           </TouchableOpacity>
         </View>
       )}
@@ -257,7 +271,8 @@ const Groups = () => {
       {/* Floating Button */}
       <TouchableOpacity
         onPress={() => router.push("/screens/pages/CreateGroup")}
-        className="absolute bottom-24 right-5 bg-indigo-600 p-3 rounded-full shadow-lg"
+        className="absolute bottom-24 right-5 p-3 rounded-full shadow-lg"
+        style={{ backgroundColor: colors.tabActive }}
       >
         <Feather name="user-plus" size={26} color="#fff" />
       </TouchableOpacity>

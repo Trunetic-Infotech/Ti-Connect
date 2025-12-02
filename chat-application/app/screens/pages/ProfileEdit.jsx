@@ -11,6 +11,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { FontAwesome6, FontAwesome } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { LinearGradient } from "expo-linear-gradient";
+import { useSelector } from "react-redux";
 
 const ProfileEdit = () => {
   const router = useRouter();
@@ -31,11 +32,20 @@ const ProfileEdit = () => {
   const [image] = useState(
     user?.image ? { uri: user.image } : require("../../../assets/images/dp.jpg")
   );
+  const darkMode = useSelector((state) => state.theme.darkMode);
+  const colors = {
+    background: darkMode ? "#111111" : "#f3f4f6",
+    cardBg: darkMode ? "#1f1f1f" : "#ffffff",
+    cardBorder: darkMode ? "#333333" : "#e5e7eb",
+    text: darkMode ? "#f5f5f5" : "#1f2937",
+    textSecondary: darkMode ? "#bbbbbb" : "#6b7280",
+    textMuted: darkMode ? "#888888" : "#9ca3af",
+    profileBorder: darkMode ? "#333" : "#fff",
+  };
 
-  
 
   return (
-    <SafeAreaView className="flex-1 bg-gray-50">
+    <SafeAreaView className="flex-1" style={{ backgroundColor: colors.background }}>
       {/* Header with wave effect */}
       <LinearGradient
         colors={["#6366f1", "#8b5cf6", "#ec4899"]}
@@ -67,7 +77,7 @@ const ProfileEdit = () => {
               height: 140,
               borderRadius: 70,
               borderWidth: 5,
-              borderColor: "#fff",
+              borderColor: colors.profileBorder,   // ← now adapts
               shadowColor: "#8b5cf6",
               shadowOpacity: 0.4,
               shadowRadius: 15,
@@ -75,9 +85,9 @@ const ProfileEdit = () => {
             }}
           />
         </View>
-        <Text className="text-xl font-semibold text-gray-800 mt-3">{name}</Text>
-        <Text className="text-sm text-gray-500">
-          {user?.isOnline === "active" ? "🟢 Online" : "⚫ Offline"}
+        <Text className="text-xl font-semibold mt-3" style={{ color: colors.text }}>{name}</Text>
+        <Text style={{ color: colors.textSecondary }}>
+          {user?.isOnline === "active" ? "Online" : "Offline"}
         </Text>
       </View>
 
@@ -87,24 +97,37 @@ const ProfileEdit = () => {
         className="flex-1 px-6 pt-8"
       >
         {/* Glassmorphism Info Card */}
-        <View className="bg-white/80 rounded-3xl p-6 shadow-xl border border-gray-100 space-y-6">
+        <View
+          className="rounded-3xl p-6 shadow-xl mx-4"
+          style={{
+            backgroundColor: colors.cardBg,
+            borderWidth: 1,
+            borderColor: colors.cardBorder,
+            shadowColor: "#000",
+            shadowOpacity: darkMode ? 0.3 : 0.1,
+            shadowRadius: 10,
+            elevation: darkMode ? 8 : 5,
+          }}
+        >
           <View>
-            <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+            <Text className="font-medium text-sm uppercase mb-1" style={{ color: colors.textMuted }}>
               Phone Number
             </Text>
-            <Text className="text-lg font-semibold text-gray-900 tracking-wide">
+            <Text className="text-lg font-semibold tracking-wide" style={{ color: colors.text }}>
               +91 {phone}
             </Text>
           </View>
 
-          <View className="border-t border-gray-200 pt-5">
-            <Text className="text-gray-400 font-medium text-sm uppercase mb-1">
+          <View className="border-t pt-5" style={{ borderTopColor: colors.cardBorder }}>
+            <Text className="font-medium text-sm uppercase mb-1" style={{ color: colors.textMuted }}>
               About Me
             </Text>
-            <Text className="text-base text-gray-700 leading-6">{bio}</Text>
+            <Text className="text-base leading-6" style={{ color: colors.textSecondary }}>
+              {bio}
+            </Text>
           </View>
         </View>
-    
+
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
