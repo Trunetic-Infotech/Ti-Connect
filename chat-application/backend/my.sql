@@ -147,8 +147,175 @@ ALTER TABLE ti_connect.group_messages
 DROP FOREIGN KEY group_messages_ibfk_2;
 ALTER TABLE ti_connect.group_messages
 ADD CONSTRAINT fk_sender_user FOREIGN KEY (sender_id) REFERENCES users(id);
+//check data
+SELECT * FROM borrowed_books WHERE id = 2
+SELECT * FROM borrowed_books  WHERE id = 2 AND status = 'returned'
 
 
-
+    
 ALTER TABLE group_messages 
 MODIFY COLUMN message TEXT DEFAULT NULL;
+//update Data
+UPDATE borrowed_books 
+         SET status = 'returned', return_date = ? ,total_days_borrowed = 0
+         WHERE id = ?
+
+
+    //Adding joint on table 
+  SELECT 
+        br.id,
+        s.student_name,
+        s.roll_number,
+        b.title AS book_title,
+        b.author AS book_author,
+        br.return_date,
+        br.condition_notes,
+        br.fine_amount,
+        br.paid,
+        t.teacher_name AS librarian_name
+      FROM returned_books br
+      JOIN students s ON br.student_id = s.id
+      JOIN books b ON br.book_id = b.id
+      LEFT JOIN teacher t ON br.librarian_teacher_id = t.id
+      WHERE br.admin_id = ?
+      ORDER BY br.return_date DESC
+
+
+   // Get total number of students (for pagination)
+    const [[{ totalStudents }]] = await students.execute(
+      `SELECT COUNT(*) AS totalStudents FROM students WHERE subclass_id = ?`,
+      [subclass_id]
+    );
+
+    
+//pagination  how I apply
+export const subClassStudenallProfileController = async (req, res) => {
+  try {
+    // Get page & limit from query, set default values
+    let { page = 1, limit = 12 } = req.query;
+    page = parseInt(page, 10);
+    limit = parseInt(limit, 10);
+    const offset = (page - 1) * limit;
+
+    const { subclass_id } = req.params;
+
+    console.log(req.params);
+    console.log("Pagination Params:", { page, limit, offset });
+
+    console.log("Pagination Params:", { page, limit, offset });
+
+    console.log(req.userID);
+
+    // Fetch user data with class_name and division
+    const [rows] = await students.execute(
+      `SELECT 
+      students.id,
+      students.roll_number,
+      students.student_name,
+      students.email,
+      students.phone_number,
+      students.address,
+      students.aadhaar_number,
+      students.admission_date,
+      students.status,
+      students.admission_id,
+      students.date_of_birth,
+      students.images,
+      students.class_id,
+      students.subclass_id,
+      students.division,
+      class_table.class_name,  
+      c.course_name
+    FROM students
+      LEFT JOIN class_table ON students.class_id = class_table.id
+      LEFT JOIN subclass ON students.subclass_id = subclass.id
+      LEFT JOIN courses c ON class_table.course_id = c.id
+    WHERE students.subclass_id = ?  
+    LIMIT ${limit} OFFSET ${offset}`, // ✅ Using Template Literals for LIMIT/OFFSET
+
+      [subclass_id]
+    );
+    // console.log(rows);
+
+    // Get total number of students (for pagination)
+    const [[{ totalStudents }]] = await students.execute(
+      `SELECT COUNT(*) AS totalStudents FROM students WHERE subclass_id = ?`,
+      [subclass_id]
+    );
+
+    // console.log(totalStudents);/
+
+    if (rows.length === 0) {
+      return res.status(404).json({ message: "Students not found" });
+    }
+
+    // Format the students data
+    const Students = rows.map((user) => ({
+      id: user.id,
+      roll_number: user.roll_number,
+      student_name: user.student_name,
+      email: user.email,
+      phone_number: user.phone_number,
+      address: user.address,
+      aadhaar_number: user.aadhaar_number,
+      admission_date: user.admission_date,
+      status: user.status,
+      admission_id: user.admission_id,
+      date_of_birth: user.date_of_birth,
+      images: user.images,
+      class_Name: user.class_name,
+      class_id: user.class_id, // Now correctly fetched from the class table
+      subclass_id: user.subclass_id, // Now correctly fetched from the class table
+      division: user.division, // Now correctly fetched from the subclass table
+      course_name: user.course_name,
+    }));
+
+    // Calculate total pages
+    const totalPages = Math.ceil(totalStudents / limit);
+
+    // console.log(Students)
+    // console.log(totalPages)
+
+    res.status(200).json({
+      message: "All Students profile retrieved successfully!",
+      Students,
+      currentPage: page,
+      totalPages,
+      totalStudents,
+    });
+  } catch (error) {
+    console.error("Error fetching profile:", error);
+    res.status(500).json({ message: "Internal server error" });
+  }
+};
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
